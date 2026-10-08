@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.drawerlayout.widget.DrawerLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/main_drawer"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:fitsSystemWindows="true"
+    app:statusBarBackground="@color/top_bar">
+
+    <androidx.coordinatorlayout.widget.CoordinatorLayout
+        android:id="@+id/coordinator_layout"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@color/background_primary"
+        android:clipChildren="false"
+        android:clipToPadding="false">
+
+        <androidx.constraintlayout.widget.ConstraintLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent">
+
+            <androidx.viewpager2.widget.ViewPager2
+                android:id="@+id/main_pager"
+                android:layout_width="0dp"
+                android:layout_height="0dp"
+                android:background="?attr/appColorBackground"
+                app:layout_constraintBottom_toBottomOf="parent"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toTopOf="parent" />
+
+            <!-- 左上角侧边栏入口 -->
+            <ImageView
+                android:id="@+id/btn_open_drawer"
+                android:layout_width="38dp"
+                android:layout_height="38dp"
+                android:layout_marginStart="12dp"
+                android:layout_marginTop="3dp"
+                android:background="@drawable/ic_round_bg"
+                android:elevation="6dp"
+                android:padding="9dp"
+                android:src="@drawable/ic_community_menu"
+                app:tint="?attr/appColorTextPrimary"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toTopOf="parent"
+                android:contentDescription="侧边栏" />
+        </androidx.constraintlayout.widget.ConstraintLayout>
+
+        <!-- 基于 Kyant0 官方规范的 78dp 悬浮溢出水珠 Compose 底栏 -->
+        <androidx.compose.ui.platform.ComposeView
+            android:id="@+id/bottom_nav_container"
+            android:layout_width="match_parent"
+            android:layout_height="84dp"
+            android:layout_gravity="bottom|center_horizontal"
+            android:layout_marginHorizontal="18dp"
+            android:layout_marginBottom="4dp"
+            android:clipChildren="false"
+            android:clipToPadding="false" />
+
+    </androidx.coordinatorlayout.widget.CoordinatorLayout>
+
+    <!-- 左侧功能侧边栏 -->
+    <include
+        layout="@layout/drawer_main"
+        android:layout_width="256dp"
+        android:layout_height="match_parent"
+        android:layout_gravity="start" />
+
+</androidx.drawerlayout.widget.DrawerLayout>

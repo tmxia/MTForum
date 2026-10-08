@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <attr name="colorPrimary80" format="color" />
+    <attr name="appColorTextPrimary" format="color" />
+    <attr name="appColorTextSecondary" format="color" />
+    <attr name="appColorTextHint" format="color" />
+    <attr name="appColorDivider" format="color" />
+    <attr name="appColorBackground" format="color" />
+    <attr name="appColorTopBar" format="color" />
+    <attr name="appColorSurface" format="color" />
+    <attr name="appColorIconSecondary" format="color" />
+    <attr name="appColorPrimary" format="color" />
+    <!-- 第 3 期：形状主题化 -->
+    <attr name="appBgInput" format="reference" />
+    <attr name="appBgButtonPrimary" format="reference" />
+    <attr name="appBgButtonSecondary" format="reference" />
+    <attr name="appColorBackgroundSecondary" format="color" />
+    <attr name="appColorBackgroundPrimary" format="color" />
+</resources>

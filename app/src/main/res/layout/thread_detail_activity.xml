@@ -1,0 +1,325 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.coordinatorlayout.widget.CoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:fitsSystemWindows="true"
+    android:background="?attr/appColorTopBar">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical">
+
+        <!-- 白色 Toolbar：不给标题，让右侧操作图标左移到标题位置 -->
+        <com.google.android.material.appbar.MaterialToolbar
+            android:id="@+id/toolbar"
+            android:layout_width="match_parent"
+            android:layout_height="?attr/actionBarSize"
+            android:background="?attr/appColorTopBar"
+            android:theme="@style/ThemeOverlay.AppCompat.DayNight"
+            app:navigationIcon="@drawable/ic_back"
+            app:navigationIconTint="@color/text_primary">
+
+            <!-- 图标靠左排列（跟随返回键），XML 先写的靠左：举报 → 打赏 → 分享。
+                 与原先靠右时的视觉顺序保持一致。 -->
+            <ImageButton
+                android:id="@+id/btn_kick"
+                android:layout_width="40dp"
+                android:layout_height="?attr/actionBarSize"
+                android:layout_gravity="start"
+                android:minWidth="0dp"
+                android:src="@drawable/ic_report_shield"
+                android:scaleType="fitCenter"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/kick_title"
+                app:tint="?attr/appColorIconSecondary"
+                android:padding="10dp" />
+
+            <!-- 打赏图标（线框镂空带¥符号，纯图标无数字） -->
+            <ImageButton
+                android:id="@+id/btn_reward"
+                android:layout_width="40dp"
+                android:layout_height="?attr/actionBarSize"
+                android:layout_gravity="start"
+                android:minWidth="0dp"
+                android:src="@drawable/ic_reward_packet_cny"
+                android:scaleType="fitCenter"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/reward_title"
+                app:tint="?attr/appColorIconSecondary"
+                android:padding="10dp" />
+
+            <ImageButton
+                android:id="@+id/btn_share"
+                android:layout_width="40dp"
+                android:layout_height="?attr/actionBarSize"
+                android:layout_gravity="start"
+                android:minWidth="0dp"
+                android:src="@drawable/ic_share_outline"
+                android:scaleType="fitCenter"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/action_share"
+                app:tint="?attr/appColorIconSecondary"
+                android:padding="10dp" />
+
+            <!-- 版块名：与三个操作图标同行，靠最右显示（纯文字，不占位时隐藏） -->
+            <TextView
+                android:id="@+id/tv_toolbar_forum"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="end"
+                android:layout_marginEnd="16dp"
+                android:maxWidth="120dp"
+                android:maxLines="1"
+                android:ellipsize="end"
+                android:textSize="11sp"
+                android:textColor="?attr/appColorTextSecondary"
+                android:visibility="gone" />
+        </com.google.android.material.appbar.MaterialToolbar>
+
+        <ProgressBar
+            android:id="@+id/progress_bar"
+            style="?android:attr/progressBarStyle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:visibility="gone" />
+
+        <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
+            android:id="@+id/swipe_refresh"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1">
+
+
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/recycler_replies"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:clipToPadding="false" />
+
+        </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
+
+        <!-- ========== 底部快捷操作栏：表情 / 图片 / @ / 评论 / 点赞 / 收藏 / 分享 ========== -->
+        <HorizontalScrollView
+            android:id="@+id/hsv_inline_image_preview"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:scrollbars="horizontal"
+            android:visibility="gone"
+            android:background="?attr/appColorTopBar">
+
+            <LinearLayout
+                android:id="@+id/ll_inline_image_preview"
+                android:layout_width="wrap_content"
+                android:layout_height="80dp"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:padding="4dp" />
+        </HorizontalScrollView>
+
+        <LinearLayout
+            android:id="@+id/layout_reply"
+            android:layout_width="match_parent"
+            android:layout_height="64dp"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingHorizontal="4dp"
+            android:paddingVertical="6dp"
+            android:background="?attr/appColorTopBar"
+            android:elevation="10dp"
+            android:visibility="gone">
+
+<com.google.android.material.textfield.TextInputLayout
+                android:id="@+id/til_reply"
+                android:layout_width="0dp"
+                android:layout_height="48dp"
+                android:layout_weight="1"
+                android:minWidth="0dp"
+                android:layout_marginStart="2dp"
+                android:layout_marginEnd="2dp"
+                app:boxBackgroundMode="none"
+                app:hintEnabled="false">
+
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/et_reply"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:minWidth="0dp"
+                    android:background="@drawable/detail_reply_input_bg"
+                    android:paddingHorizontal="8dp"
+                    android:paddingVertical="0dp"
+                    android:hint="说点什么吧..."
+                    android:inputType="textMultiLine|textCapSentences"
+                    android:maxLines="2"
+                    android:imeOptions="actionSend" />
+            </com.google.android.material.textfield.TextInputLayout>
+
+            <!-- 评论按钮容器 (图标 + 右侧灰白数字) -->
+            <LinearLayout
+                android:id="@+id/layout_comments"
+                android:layout_width="wrap_content"
+                android:layout_height="48dp"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:clickable="true"
+                android:focusable="true"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:paddingHorizontal="4dp">
+
+                <ImageButton
+                    android:id="@+id/btn_comments"
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:minWidth="0dp"
+                    android:src="@drawable/ic_comment_outline"
+                    android:scaleType="fitCenter"
+                    android:background="@android:color/transparent"
+                    android:contentDescription="查看评论"
+                    app:tint="?attr/appColorIconSecondary" />
+
+                <TextView
+                    android:id="@+id/tv_comments_badge"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="3dp"
+                    android:singleLine="true"
+                    android:textColor="?attr/appColorTextSecondary"
+                    android:textSize="12sp"
+                    android:visibility="gone" />
+
+            </LinearLayout>
+
+            <!-- 点赞按钮容器 (图标 + 右侧灰白数字) -->
+            <LinearLayout
+                android:id="@+id/layout_like"
+                android:layout_width="wrap_content"
+                android:layout_height="48dp"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:clickable="true"
+                android:focusable="true"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:paddingHorizontal="4dp">
+
+                <ImageButton
+                    android:id="@+id/btn_like"
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:minWidth="0dp"
+                    android:src="@drawable/ic_like_outline"
+                    android:scaleType="fitCenter"
+                    android:background="@android:color/transparent"
+                    android:contentDescription="@string/action_like" />
+
+                <TextView
+                    android:id="@+id/tv_like_badge"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="3dp"
+                    android:singleLine="true"
+                    android:textColor="?attr/appColorTextSecondary"
+                    android:textSize="12sp"
+                    android:visibility="gone" />
+
+            </LinearLayout>
+
+            <!-- 收藏按钮容器 (图标 + 右侧灰白数字) -->
+            <LinearLayout
+                android:id="@+id/layout_favorite"
+                android:layout_width="wrap_content"
+                android:layout_height="48dp"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:clickable="true"
+                android:focusable="true"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:paddingHorizontal="4dp">
+
+                <ImageButton
+                    android:id="@+id/btn_favorite"
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:minWidth="0dp"
+                    android:src="@drawable/ic_favorite_outline"
+                    android:scaleType="fitCenter"
+                    android:background="@android:color/transparent"
+                    android:contentDescription="@string/action_favorite" />
+
+                <TextView
+                    android:id="@+id/tv_favorite_badge"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="3dp"
+                    android:singleLine="true"
+                    android:textColor="?attr/appColorTextSecondary"
+                    android:textSize="12sp"
+                    android:visibility="gone" />
+
+            </LinearLayout>
+
+            <!-- 图片选择按钮 -->
+            <LinearLayout
+                android:id="@+id/layout_pick_image"
+                android:layout_width="wrap_content"
+                android:layout_height="48dp"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:clickable="true"
+                android:focusable="true"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:paddingHorizontal="4dp">
+
+                <ImageButton
+                    android:id="@+id/btn_pick_image_inline"
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:minWidth="0dp"
+                    android:src="@drawable/ic_gallery_outline"
+                    android:scaleType="fitCenter"
+                    android:background="@android:color/transparent"
+                    android:contentDescription="选择图片"
+                    app:tint="?attr/appColorIconSecondary" />
+            </LinearLayout>
+
+            <!-- 发送按钮(暂时注释)
+            <ImageButton
+                android:id="@+id/btn_send"
+                android:layout_width="32dp"
+                android:layout_height="48dp"
+                android:minWidth="0dp"
+                android:src="@drawable/ic_send"
+                android:scaleType="fitCenter"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="发送"
+                app:tint="?attr/colorPrimary"
+                android:padding="4dp" />
+            -->
+        </LinearLayout>
+
+    </LinearLayout>
+
+    <!-- 回复半透明遮罩层：点击空白处收起回复输入框 -->
+    <View
+        android:id="@+id/v_reply_mask"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#55000000"
+        android:clickable="true"
+        android:focusable="true"
+        android:visibility="gone" />
+
+    <!-- 底部原生贴合回复面板（直接嵌入Activity视图树，随软键盘自然贴合升降动画，不再使用弹窗） -->
+    <FrameLayout
+        android:id="@+id/container_reply_panel"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom"
+        android:visibility="gone">
+
+        <include
+            android:id="@+id/panel_reply"
+            layout="@layout/dialog_reply_bottom_sheet" />
+    </FrameLayout>
+
+</androidx.coordinatorlayout.widget.CoordinatorLayout>
