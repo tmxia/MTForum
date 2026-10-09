@@ -1,0 +1,299 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="?attr/appColorTopBar"
+    android:fitsSystemWindows="true">
+
+    <!-- 顶部 Toolbar：纯白底色，现代大标题与返回箭头 -->
+    <com.google.android.material.appbar.MaterialToolbar
+        android:id="@+id/toolbar"
+        android:layout_width="match_parent"
+        android:layout_height="?attr/actionBarSize"
+        android:background="?attr/appColorTopBar"
+        app:titleTextColor="@color/text_primary"
+        app:navigationIconTint="@color/text_primary"
+        app:title="@string/title_search" />
+
+    <!-- 顶栏与输入区之间细分割线 -->
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="0.5dp"
+        android:background="?attr/appColorDivider" />
+
+    <!-- 搜索输入区域：纯白背景衬底，包含微灰胶囊输入框 + 一键清空 + 紧凑搜索按钮 -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:background="?attr/appColorTopBar"
+        android:paddingHorizontal="14dp"
+        android:paddingVertical="10dp">
+
+        <!-- 胶囊输入框容器 -->
+        <LinearLayout
+            android:id="@+id/layout_input_box"
+            android:layout_width="0dp"
+            android:layout_height="38dp"
+            android:layout_weight="1"
+            android:layout_marginEnd="10dp"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:background="@drawable/bg_search_input_capsule"
+            android:paddingStart="12dp"
+            android:paddingEnd="8dp">
+
+            <!-- 搜索小图标 -->
+            <ImageView
+                android:layout_width="16dp"
+                android:layout_height="16dp"
+                android:src="@drawable/ic_search_new"
+                app:tint="?attr/appColorTextHint"
+                android:contentDescription="@string/hint_search" />
+
+            <!-- 文本输入框 -->
+            <EditText
+                android:id="@+id/et_search"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:layout_marginStart="8dp"
+                android:background="@android:color/transparent"
+                android:paddingVertical="0dp"
+                android:textSize="13.5sp"
+                android:textColor="?attr/appColorTextPrimary"
+                android:textColorHint="@color/text_hint"
+                android:hint="@string/search_hint"
+                android:imeOptions="actionSearch"
+                android:inputType="text"
+                android:maxLines="1"
+                android:ellipsize="end"
+                android:singleLine="true" />
+
+            <!-- 一键清除按钮 -->
+            <ImageView
+                android:id="@+id/iv_clear"
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:padding="4dp"
+                android:src="@drawable/ic_cross"
+                app:tint="?attr/appColorTextHint"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:visibility="gone"
+                android:contentDescription="清空输入" />
+        </LinearLayout>
+
+        <!-- 紧凑圆角胶囊搜索按钮 -->
+        <TextView
+            android:id="@+id/btn_search"
+            android:layout_width="wrap_content"
+            android:layout_height="36dp"
+            android:minWidth="58dp"
+            android:gravity="center"
+            android:text="@string/action_search"
+            android:textSize="13sp"
+            android:fontFamily="sans-serif-medium"
+            android:textColor="@color/text_white"
+            android:background="@drawable/bg_unlock_action_btn"
+            android:clickable="true"
+            android:focusable="true" />
+    </LinearLayout>
+
+    <!-- 分割线 -->
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="0.5dp"
+        android:background="?attr/appColorDivider" />
+
+    <!-- 排序切换栏：升级为图二分段药丸（白底卡片选中，灰字未选中） -->
+    <LinearLayout
+        android:id="@+id/layout_sort_bar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center"
+        android:background="?attr/appColorTopBar"
+        android:paddingHorizontal="16dp"
+        android:paddingVertical="8dp"
+        android:visibility="gone">
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="28dp"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:background="@drawable/bg_segment_track"
+            android:padding="2dp">
+
+            <TextView
+                android:id="@+id/btn_sort_lastpost"
+                android:layout_width="wrap_content"
+                android:layout_height="match_parent"
+                android:paddingHorizontal="12dp"
+                android:gravity="center"
+                android:text="@string/search_sort_lastpost"
+                android:textSize="12sp"
+                android:clickable="true"
+                android:focusable="true" />
+
+            <TextView
+                android:id="@+id/btn_sort_dateline"
+                android:layout_width="wrap_content"
+                android:layout_height="match_parent"
+                android:paddingHorizontal="12dp"
+                android:gravity="center"
+                android:text="@string/search_sort_dateline"
+                android:textSize="12sp"
+                android:clickable="true"
+                android:focusable="true" />
+
+            <TextView
+                android:id="@+id/btn_sort_replies"
+                android:layout_width="wrap_content"
+                android:layout_height="match_parent"
+                android:paddingHorizontal="12dp"
+                android:gravity="center"
+                android:text="@string/search_sort_replies"
+                android:textSize="12sp"
+                android:clickable="true"
+                android:focusable="true" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <!-- 分段栏下分割线（仅在分段栏显示时显现） -->
+    <View
+        android:id="@+id/v_sort_divider"
+        android:layout_width="match_parent"
+        android:layout_height="0.5dp"
+        android:background="?attr/appColorDivider"
+        android:visibility="gone" />
+
+    <!-- 加载指示器 -->
+    <ProgressBar
+        android:id="@+id/progress_bar"
+        android:layout_width="36dp"
+        android:layout_height="36dp"
+        android:layout_gravity="center"
+        android:layout_marginTop="56dp"
+        android:visibility="gone"
+        android:indeterminateTint="?attr/colorPrimary" />
+
+    <!-- 搜索结果列表：纯白背景 -->
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/recycler_view"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:background="?attr/appColorTopBar"
+        android:clipToPadding="false"
+        android:paddingTop="4dp"
+        android:paddingBottom="12dp"
+        android:visibility="gone" />
+
+    <!-- 加载更多指示器 -->
+    <ProgressBar
+        android:id="@+id/progress_load_more"
+        android:layout_width="28dp"
+        android:layout_height="28dp"
+        android:layout_gravity="center"
+        android:layout_marginVertical="10dp"
+        android:visibility="gone"
+        android:indeterminateTint="?attr/colorPrimary" />
+
+    <!-- 现代居中空状态排版（带大图标与双行提示） -->
+    <LinearLayout
+        android:id="@+id/layout_empty_state"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:gravity="center"
+        android:orientation="vertical"
+        android:paddingHorizontal="32dp"
+        android:visibility="visible">
+
+        <ImageView
+            android:id="@+id/iv_empty_icon"
+            android:layout_width="60dp"
+            android:layout_height="60dp"
+            android:src="@drawable/ic_search_new"
+            app:tint="?attr/appColorTextHint"
+            android:alpha="0.3"
+            android:contentDescription="搜索图标" />
+
+        <TextView
+            android:id="@+id/tv_empty"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:textSize="14sp"
+            android:textColor="?attr/appColorTextHint"
+            android:text="@string/search_empty_hint"
+            android:gravity="center" />
+    </LinearLayout>
+
+    <!-- 错误提示 -->
+    <TextView
+        android:id="@+id/tv_error"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:layout_marginTop="64dp"
+        android:textSize="14sp"
+        android:textColor="@color/error"
+        android:text="@string/search_failed"
+        android:visibility="gone" />
+
+
+    <!-- ══════ 搜索历史区（输入为空时显示）══════ -->
+    <LinearLayout
+        android:id="@+id/layout_history"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:orientation="vertical"
+        android:background="?attr/appColorTopBar"
+        android:visibility="gone">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingHorizontal="16dp"
+            android:paddingTop="12dp"
+            android:paddingBottom="8dp">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/search_history_title"
+                android:textSize="13sp"
+                android:textColor="?attr/appColorTextSecondary"
+                android:fontFamily="sans-serif-medium" />
+
+            <ImageView
+                android:id="@+id/iv_clear_all_history"
+                android:layout_width="28dp"
+                android:layout_height="28dp"
+                android:padding="6dp"
+                android:src="@drawable/ic_delete"
+                app:tint="?attr/appColorTextHint"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/search_history_clear" />
+        </LinearLayout>
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/rv_history"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:background="?attr/appColorTopBar"
+            android:clipToPadding="false"
+            android:paddingBottom="12dp" />
+    </LinearLayout>
+
+</LinearLayout>

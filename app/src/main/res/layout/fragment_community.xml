@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="?attr/appColorBackground"
+    android:orientation="vertical">
+
+    <!-- 标题栏:让出侧边栏汉堡按钮 -->
+    <RelativeLayout
+        android:id="@+id/layout_title_bar"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:background="?attr/appColorTopBar">
+
+        <TextView
+            android:id="@+id/tv_title_discover"
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:layout_alignParentStart="true"
+            android:gravity="center_vertical"
+            android:paddingStart="52dp"
+            android:text="@string/tab_discover"
+            android:textColor="?attr/appColorTextPrimary"
+            android:textSize="20sp"
+            android:fontFamily="sans-serif-medium" />
+
+        <!-- 顶栏右侧签到按钮，与发现标题水平对齐 -->
+        <TextView
+            android:id="@+id/btn_sign_in"
+            android:layout_width="wrap_content"
+            android:layout_height="30dp"
+            android:minWidth="64dp"
+            android:layout_alignParentEnd="true"
+            android:layout_centerVertical="true"
+            android:layout_marginEnd="14dp"
+            android:gravity="center"
+            android:textAlignment="center"
+            android:paddingStart="12dp"
+            android:paddingEnd="12dp"
+            android:paddingTop="0dp"
+            android:paddingBottom="0dp"
+            android:includeFontPadding="false"
+            android:singleLine="true"
+            android:clickable="true"
+            android:focusable="true"
+            android:text="@string/action_sign_in"
+            android:textSize="13sp"
+            android:fontFamily="sans-serif-medium"
+            android:textColor="@color/text_white"
+            android:background="@drawable/rounded_btn_primary" />
+
+        <TextView
+            android:id="@+id/tv_sign_in_status"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:visibility="gone" />
+
+    </RelativeLayout>
+
+    <androidx.core.widget.NestedScrollView
+        android:id="@+id/nav_scroll_community"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="?attr/appColorBackground"
+        android:clipToPadding="false"
+        android:fillViewport="true">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingBottom="92dp"
+            android:paddingEnd="3dp"
+            android:paddingStart="3dp"
+            android:paddingTop="6dp">
+
+
+        <!-- 版块网格 -->
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/rv_forum_grid"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="80dp"
+            android:nestedScrollingEnabled="false" />
+
+        </LinearLayout>
+    </androidx.core.widget.NestedScrollView>
+
+</LinearLayout>

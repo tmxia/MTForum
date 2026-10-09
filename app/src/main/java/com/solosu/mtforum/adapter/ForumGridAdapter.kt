@@ -1,0 +1,162 @@
+package com.solosu.mtforum.adapter
+
+import android.content.Context
+import android.view.LayoutInflater
+import android.view.View
+import android.view.ViewGroup
+import android.widget.ImageView
+import android.widget.TextView
+import androidx.annotation.NonNull
+import androidx.recyclerview.widget.RecyclerView
+import com.bumptech.glide.Glide
+import com.solosu.mtforum.R
+import com.solosu.mtforum.model.ForumCategory
+import com.solosu.mtforum.ui.widget.FrostedGlassDrawable
+import java.util.ArrayList
+
+
+
+
+class ForumGridAdapter(private val context: Context) : RecyclerView.Adapter<ForumGridAdapter.ViewHolder>() {
+
+    private val forumList: MutableList<ForumCategory.Forum> = ArrayList()
+    private var listener: OnForumClickListener? = null
+
+    interface OnForumClickListener {
+        fun onForumClick(forum: ForumCategory.Forum?, position: Int)
+    }
+
+    fun getForumList(): MutableList<ForumCategory.Forum> {
+        return forumList
+    }
+
+    private var lastAnimatedPosition = -1
+
+    fun setForumList(list: List<ForumCategory.Forum>?) {
+        forumList.clear()
+        if (list != null) forumList.addAll(list)
+        lastAnimatedPosition = -1
+        notifyDataSetChanged()
+    }
+
+    fun setOnForumClickListener(listener: OnForumClickListener?) {
+        this.listener = listener
+    }
+
+    
+
+
+    fun updateForumAt(position: Int, forum: ForumCategory.Forum?) {
+        if (forum == null || position < 0 || position >= forumList.size) return
+        forumList.set(position, forum)
+        notifyItemChanged(position)
+    }
+
+    @NonNull
+    override fun onCreateViewHolder(@NonNull parent: ViewGroup, viewType: Int): ViewHolder {
+        val view = LayoutInflater.from(context).inflate(R.layout.item_forum_grid, parent, false)
+        return ViewHolder(view)
+    }
+
+    override fun onBindViewHolder(@NonNull holder: ViewHolder, position: Int) {
+        val forum = forumList[position]
+        holder.tvName.setText(forum.name)
+
+        
+        holder.tvDesc.setVisibility(View.GONE)
+
+        
+        val heat = if (forum.totalPosts > 0) forum.totalPosts else forum.totalThreads
+        val newPosts = forum.todayPosts
+        holder.tvPosts.setText(formatForumCount(heat) + "热度  " + newPosts + "新帖")
+
+        
+        val iconUrl = forum.iconUrl
+        if (iconUrl != null && !iconUrl.isEmpty()) {
+            Glide.with(context)
+                    .load(iconUrl)
+                    .placeholder(R.drawable.ic_circle)
+                    .circleCrop()
+                    .into(holder.ivIcon)
+        } else {
+            holder.ivIcon.setImageResource(R.drawable.ic_circle)
+        }
+
+        
+        holder.itemView.setOnClickListener { v ->
+            v.animate()
+                .scaleX(0.95f)
+                .scaleY(0.95f)
+                .setDuration(80)
+                .withEndAction {
+                    v.animate()
+                        .scaleX(1.0f)
+                        .scaleY(1.0f)
+                        .setDuration(120)
+                        .setInterpolator(android.view.animation.OvershootInterpolator(2.0f))
+                        .start()
+                    if (listener != null) {
+                        listener!!.onForumClick(forum, position)
+                    }
+                }
+                .start()
+        }
+
+        
+        if (position > lastAnimatedPosition) {
+            holder.itemView.alpha = 0f
+            holder.itemView.scaleX = 0.92f
+            holder.itemView.scaleY = 0.92f
+            holder.itemView.animate()
+                .alpha(1f)
+                .scaleX(1.0f)
+                .scaleY(1.0f)
+                .setDuration(200)
+                .setInterpolator(android.view.animation.DecelerateInterpolator(1.5f))
+                .start()
+            lastAnimatedPosition = position
+        }
+    }
+
+    private fun formatForumCount(count: Int): String {
+        if (count >= 10000) {
+            return String.format(java.util.Locale.getDefault(), "%.2f万", count / 10000.0)
+        }
+        return count.toString()
+    }
+
+    override fun getItemCount(): Int {
+        return forumList.size
+    }
+
+    override fun onViewAttachedToWindow(@NonNull holder: ViewHolder) {
+        super.onViewAttachedToWindow(holder)
+        holder.itemView.getBackground().setVisible(true, false)
+    }
+
+    override fun onViewDetachedFromWindow(@NonNull holder: ViewHolder) {
+        holder.itemView.getBackground().setVisible(false, false)
+        super.onViewDetachedFromWindow(holder)
+    }
+
+    override fun onViewRecycled(@NonNull holder: ViewHolder) {
+        holder.itemView.getBackground().setVisible(false, false)
+        super.onViewRecycled(holder)
+    }
+
+
+
+    class ViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
+        val ivIcon: ImageView
+        val tvName: TextView
+        val tvDesc: TextView
+        val tvPosts: TextView
+
+        init {
+            ivIcon = itemView.findViewById(R.id.iv_forum_icon)
+            tvName = itemView.findViewById(R.id.tv_forum_name)
+            tvDesc = itemView.findViewById(R.id.tv_forum_desc)
+            tvPosts = itemView.findViewById(R.id.tv_forum_posts)
+        }
+    }
+}

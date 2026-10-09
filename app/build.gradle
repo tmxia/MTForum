@@ -1,0 +1,100 @@
+plugins {
+    alias(libs.plugins.android.application)
+    alias(libs.plugins.kotlin.android)
+    alias(libs.plugins.kotlin.compose)
+}
+
+android {
+    namespace 'com.solosu.mtforum'
+    compileSdk 36
+    // AGP 8.13 默认要 35.0.0，本机 SDK 只装了 36.0.0，且容器禁止自动下载 SDK 组件。
+    buildToolsVersion '36.0.0'
+
+    // 签名口令不入库：从 local.properties（已在 .gitignore 中）读取。
+    // 缺任一项时不配置 release 签名，产出未签名包，避免把私钥材料写进仓库。
+    def localProps = new Properties()
+    def localPropsFile = rootProject.file('local.properties')
+    if (localPropsFile.exists()) {
+        localPropsFile.withInputStream { localProps.load(it) }
+    }
+    def releaseStoreFile = localProps.getProperty('RELEASE_STORE_FILE')
+    def releaseStorePassword = localProps.getProperty('RELEASE_STORE_PASSWORD')
+    def releaseKeyAlias = localProps.getProperty('RELEASE_KEY_ALIAS')
+    def releaseKeyPassword = localProps.getProperty('RELEASE_KEY_PASSWORD')
+    def hasReleaseSigning = releaseStoreFile && releaseStorePassword && releaseKeyAlias && releaseKeyPassword
+
+    defaultConfig {
+        applicationId 'com.solosu.mtforum.tp'
+        minSdk 29
+        targetSdk 36
+        versionCode 11
+        versionName "2.3.4"
+    }
+
+    signingConfigs {
+        if (hasReleaseSigning) {
+            release {
+                storeFile file(releaseStoreFile)
+                storePassword releaseStorePassword
+                keyAlias releaseKeyAlias
+                keyPassword releaseKeyPassword
+                v1SigningEnabled true
+                v2SigningEnabled true
+            }
+        }
+    }
+
+    buildTypes {
+        debug {
+            // 调试包沿用 AGP 默认的 debug 签名
+        }
+        release {
+            if (hasReleaseSigning) {
+                signingConfig signingConfigs.release
+            } else {
+                logger.lifecycle("[签名] 未配置 RELEASE_* 于 local.properties，release 将产出未签名包")
+            }
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            shrinkResources false
+        }
+    }
+    buildFeatures {
+        viewBinding true
+        buildConfig true
+        compose true
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_21
+        targetCompatibility JavaVersion.VERSION_21
+    }
+    kotlinOptions {
+        jvmTarget = '21'
+    }
+}
+
+dependencies {
+    implementation libs.kotlin.stdlib
+    implementation libs.androidx.core
+    implementation libs.androidx.appcompat
+    implementation libs.material
+    implementation libs.androidx.constraintlayout
+    // 注：曾引 vectordrawable / lifecycle-livedata / lifecycle-viewmodel /
+    //     navigation-fragment / navigation-ui，全项目零 import（nav_graph 也无 NavHost
+    //     承载），已移除。需要时再加回并同步更新 libs.versions.toml。
+    implementation libs.jsoup
+    implementation libs.glide
+    implementation libs.okhttp
+    implementation libs.swiperefreshlayout
+    implementation libs.recyclerview
+    implementation libs.androidx.viewpager2
+    implementation libs.androidx.drawerlayout
+    implementation libs.liquidglass
+    implementation libs.androidx.security.crypto
+
+    implementation platform(libs.compose.bom)
+    implementation libs.compose.ui
+    implementation libs.compose.foundation
+    implementation libs.compose.material3
+}

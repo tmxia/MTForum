@@ -1,0 +1,134 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 主色调 - 现代科技微蓝体系 (Indigo / Sapphire) -->
+    <color name="primary">#2563EB</color>
+    <color name="primary_dark">#1D4ED8</color>
+    <color name="primary_light">#3B82F6</color>
+    <color name="primary_alpha_30">#4D2563EB</color>
+    <color name="primary_alpha_19">#202563EB</color>
+
+    <!-- 多主题色彩体系 (日间) -->
+    <color name="theme_blue">#2563EB</color>
+    <color name="theme_blue_dark">#1D4ED8</color>
+    <color name="theme_blue_light">#3B82F6</color>
+
+    <color name="theme_teal">#0D9488</color>
+    <color name="theme_teal_dark">#0F766E</color>
+    <color name="theme_teal_light">#14B8A6</color>
+
+    <color name="theme_purple">#7C3AED</color>
+    <color name="theme_purple_dark">#6D28D9</color>
+    <color name="theme_purple_light">#8B5CF6</color>
+
+    <color name="theme_orange">#EA580C</color>
+    <color name="theme_orange_dark">#C2410C</color>
+    <color name="theme_orange_light">#F97316</color>
+
+    <color name="theme_graphite">#475569</color>
+    <color name="theme_graphite_dark">#334155</color>
+    <color name="theme_graphite_light">#64748B</color>
+
+    <color name="theme_rose">#E11D48</color>
+    <color name="theme_rose_dark">#BE123C</color>
+    <color name="theme_rose_light">#F43F5E</color>
+
+    <!-- 背景色 - 现代冷灰与纯白层级 (Slate 系列) -->
+    <color name="background">#F2F2F6</color>
+    <color name="background_primary">#F2F2F6</color>
+    <!-- 顶栏专用白色（与灰底页面区分） -->
+    <color name="top_bar">#FFFFFF</color>
+    <color name="background_secondary">#F1F5F9</color>
+    <color name="surface">#FFFFFF</color>
+    <!-- 卡片表面：纯净高质感白 -->
+    <color name="card_frosted">#FFFFFF</color>
+    <color name="divider">#EBEFF4</color>
+
+    <!-- 代码块背景(浅色) -->
+    <color name="code_block_bg">#F1F5F9</color>
+    <color name="code_block_text">#1E293B</color>
+
+    <!-- 暗色背景兼容值 -->
+    <color name="background_dark">#F8FAFC</color>
+    <color name="surface_dark">#FFFFFF</color>
+
+    <!-- 文字排版体系 - 层次分明、深邃易读 -->
+    <color name="text_primary">#0F172A</color>
+    <color name="text_secondary">#475569</color>
+    <color name="text_hint">#94A3B8</color>
+    <color name="text_white">#FFFFFF</color>
+
+    <!-- 底部与导航栏 -->
+    <color name="nav_icon_default">#94A3B8</color>
+    <color name="nav_icon_active">#2563EB</color>
+    <color name="nav_text_default">#94A3B8</color>
+    <color name="nav_text_active">#2563EB</color>
+
+    <!-- 功能语义色 -->
+    <color name="success">#10B981</color>
+    <color name="warning">#F59E0B</color>
+    <color name="error">#EF4444</color>
+    <color name="link_color">#2563EB</color>
+    <color name="info">#3B82F6</color>
+    <color name="accent_primary">#2563EB</color>
+
+    <!-- 渐变 -->
+    <color name="gradient_start">#2563EB</color>
+    <color name="gradient_end">#60A5FA</color>
+
+    <!-- 中性辅助色与微阴影遮罩 -->
+    <color name="icon_secondary">#64748B</color>
+    <color name="gold">#F59E0B</color>
+    <color name="gold_deep">#D97706</color>
+
+    <!-- 科技青 (Teal: 极简通透未来感) -->
+    <color name="accent_ai">#0D9488</color>
+
+    <!-- 置顶帖胶囊 (现代中性质感胶囊，搭配动态主题色文字) -->
+    <color name="sticky_card_bg">#F1F5F9</color>
+    <color name="sticky_stroke">#E2E8F0</color>
+    <color name="sticky_text">#2563EB</color>
+
+    <!-- 角标系统 -->
+    <color name="badge_red">#F43F5E</color>
+    <color name="badge_green">#10B981</color>
+    <color name="badge_amber">#F59E0B</color>
+    <color name="badge_blue">#3B82F6</color>
+    <color name="badge_alert">#EF4444</color>
+
+    <!-- 版块描边与图标 -->
+    <color name="forum_stroke">#E2E8F0</color>
+    <color name="forum_icon">#64748B</color>
+
+    <!-- 遮罩与半透明层 -->
+    <color name="scrim">#0F000000</color>
+    <color name="scrim_heavy">#26000000</color>
+    <color name="scrim_light">#0D000000</color>
+    <color name="transparent">#00000000</color>
+    <color name="preview_bg">#FF000000</color>
+
+    <!-- 基础兼容色 -->
+    <color name="black">#FF000000</color>
+    <color name="white">#FFFFFFFF</color>
+    <color name="purple_200">#C084FC</color>
+    <color name="purple_500">#8B5CF6</color>
+    <color name="purple_700">#6D28D9</color>
+    <color name="teal_200">#5EEAD4</color>
+    <color name="teal_700">#0F766E</color>
+    <color name="blue_500">#3B82F6</color>
+    <color name="red_500">#EF4444</color>
+
+    <!-- 回复与引用区 (现代极简冷灰衬底 + 优雅主色文字，摒弃复古土黄) -->
+    <color name="reply_quote_background">#F1F5F9</color>
+    <color name="reply_quote_border">#CBD5E1</color>
+    <color name="reply_quote_title">#2563EB</color>
+    <color name="reply_quote_content">#475569</color>
+    <color name="reply_op_badge_background">#EFF6FF</color>
+    <color name="follow_bg">#F1F5F9</color>
+
+    <!-- 按钮与占位符 -->
+    <color name="reward_btn">#F59E0B</color>
+    <color name="gray_alpha_25">#2694A3B8</color>
+    <color name="gray_alpha_09">#1294A3B8</color>
+    <color name="image_placeholder_bg">#F8FAFC</color>
+    <color name="image_placeholder_stroke">#E2E8F0</color>
+</resources>
