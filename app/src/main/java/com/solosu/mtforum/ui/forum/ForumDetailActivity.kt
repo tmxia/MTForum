@@ -90,6 +90,10 @@ class ForumDetailActivity : AppCompatActivity() {
                 .into(binding.ivForumIcon)
         } else {
             binding.ivForumIcon.setImageResource(R.drawable.ic_circle)
+            
+            if (!fid.isNullOrEmpty()) {
+                fetchForumIconFromServer(fid!!)
+            }
         }
 
         
@@ -189,6 +193,42 @@ class ForumDetailActivity : AppCompatActivity() {
 
 
 
+
+    
+
+
+
+    private fun fetchForumIconFromServer(targetFid: String) {
+        java.lang.Thread {
+            try {
+                val html = httpClient.get(ForumParser.getForumlistMobileUrl())
+                if (html.isNullOrEmpty()) return@Thread
+                val categories = ForumParser.parseForumCategories(html)
+                var iconUrl: String? = null
+                for (cat in categories) {
+                    for (f in cat.forums) {
+                        if (f.fid == targetFid) {
+                            iconUrl = f.iconUrl
+                            break
+                        }
+                    }
+                    if (iconUrl != null) break
+                }
+                if (!iconUrl.isNullOrEmpty()) {
+                    val finalUrl = iconUrl
+                    runOnUiThread {
+                        if (isFinishing || isDestroyed) return@runOnUiThread
+                        Glide.with(this@ForumDetailActivity)
+                            .load(finalUrl)
+                            .placeholder(R.drawable.ic_circle)
+                            .circleCrop()
+                            .into(binding.ivForumIcon)
+                    }
+                }
+            } catch (_: Exception) {
+            }
+        }.start()
+    }
 
     private fun fetchNetworkPage(page: Int, isRefresh: Boolean) {
         if (isLoading) return
