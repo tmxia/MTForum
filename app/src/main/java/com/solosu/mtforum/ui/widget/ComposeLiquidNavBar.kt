@@ -247,6 +247,7 @@ fun MTForumLiquidNavBar(
                             chromaticAberration = false 
                         )
                     },
+                    highlight = { if (isLightTheme) Highlight.Default else Highlight.Default.copy(alpha = 0f) },
                     layerBlock = {
                         val progress = dampedDragAnimation.pressProgress
                         if (size.width > 0f) {
