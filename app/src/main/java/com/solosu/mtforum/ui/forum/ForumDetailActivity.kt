@@ -206,7 +206,7 @@ class ForumDetailActivity : AppCompatActivity() {
                 val categories = ForumParser.parseForumCategories(html)
                 var iconUrl: String? = null
                 for (cat in categories) {
-                    for (f in cat.forums) {
+                    for (f in (cat.forums ?: emptyList())) {
                         if (f.fid == targetFid) {
                             iconUrl = f.iconUrl
                             break
