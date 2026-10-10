@@ -471,6 +471,7 @@
                     android:paddingHorizontal="16dp">
 
                     <ImageView
+                        android:id="@+id/iv_emoji_browse_history"
                         android:layout_width="36dp"
                         android:layout_height="36dp"
                         android:background="@drawable/menu_icon_bg"
@@ -688,6 +689,7 @@
                     android:background="?attr/selectableItemBackground">
 
                     <ImageView
+                        android:id="@+id/iv_emoji_ios_style"
                         android:layout_width="36dp"
                         android:layout_height="36dp"
                         android:background="@drawable/menu_icon_bg"

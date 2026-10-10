@@ -63,6 +63,8 @@ class ProfileFragment : Fragment() {
         applyFrostedGlassToIcon(binding!!.ivEmojiCredits)
         applyFrostedGlassToIcon(binding!!.ivEmojiEdit)
         applyFrostedGlassToIcon(binding!!.ivEmojiBlacklist)
+        applyFrostedGlassToIcon(binding!!.ivEmojiBrowseHistory)
+        applyFrostedGlassToIcon(binding!!.ivEmojiIosStyle)
 
         httpClient = HttpClient.getInstance()
 
