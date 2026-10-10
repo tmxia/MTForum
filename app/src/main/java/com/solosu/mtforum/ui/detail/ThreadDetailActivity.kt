@@ -93,6 +93,7 @@ import com.solosu.mtforum.session.FollowStateManager
 import com.solosu.mtforum.session.PostCountsCache
 import com.solosu.mtforum.session.UserSessionManager
 import com.solosu.mtforum.ui.login.LoginBottomSheet
+import com.solosu.mtforum.ui.forum.ForumDetailActivity
 import com.solosu.mtforum.ui.message.ChatActivity
 import com.solosu.mtforum.ui.space.UserProfileActivity
 import com.solosu.mtforum.ui.widget.DialogHelper
@@ -382,8 +383,10 @@ class ThreadDetailActivity : AppCompatActivity() {
         if (!TextUtils.isEmpty(detail.forumName)) {
             binding.tvToolbarForum.visibility = View.VISIBLE
             binding.tvToolbarForum.text = detail.forumName
+            binding.tvToolbarForum.setOnClickListener { openForumFromToolbar(detail.forumFid, detail.forumName) }
         } else {
             binding.tvToolbarForum.visibility = View.GONE
+            binding.tvToolbarForum.setOnClickListener(null)
         }
         val avatarUrl = detail.avatarUrl
         if (!TextUtils.isEmpty(avatarUrl)) {
@@ -497,6 +500,17 @@ class ThreadDetailActivity : AppCompatActivity() {
                 if (dy > 0) maybeAutoLoadMore()
             }
         })
+    }
+
+    private fun openForumFromToolbar(fid: String?, forumName: String?) {
+        if (TextUtils.isEmpty(fid)) {
+            Toast.makeText(this, "无法获取版块信息", Toast.LENGTH_SHORT).show()
+            return
+        }
+        val i = Intent(this, ForumDetailActivity::class.java)
+        i.putExtra("fid", fid)
+        i.putExtra("forumName", forumName ?: "")
+        startActivity(i)
     }
 
     private fun loadPostDetail() {
@@ -620,8 +634,10 @@ class ThreadDetailActivity : AppCompatActivity() {
         if (!TextUtils.isEmpty(postDetail.forumName)) {
             binding.tvToolbarForum.visibility = View.VISIBLE
             binding.tvToolbarForum.text = postDetail.forumName
+            binding.tvToolbarForum.setOnClickListener { openForumFromToolbar(postDetail.forumFid, postDetail.forumName) }
         } else {
             binding.tvToolbarForum.visibility = View.GONE
+            binding.tvToolbarForum.setOnClickListener(null)
         }
         headerBinding!!.tvThreadTitle.text = if (!TextUtils.isEmpty(postDetail.title)) postDetail.title else ""
         
