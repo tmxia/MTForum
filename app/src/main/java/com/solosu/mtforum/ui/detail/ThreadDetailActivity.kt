@@ -1,0 +1,5789 @@
+package com.solosu.mtforum.ui.detail
+
+import android.app.Dialog
+import android.content.Context
+import android.content.DialogInterface
+import android.content.Intent
+import android.content.SharedPreferences
+import android.database.Cursor
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.Paint
+import android.graphics.RectF
+import android.graphics.Typeface
+import android.graphics.drawable.ColorDrawable
+import android.graphics.drawable.Drawable
+import android.graphics.drawable.GradientDrawable
+import android.net.Uri
+import android.os.Bundle
+import android.provider.OpenableColumns
+import android.text.Html
+import android.text.Spannable
+import android.text.method.LinkMovementMethod
+import android.text.SpannableString
+import android.text.Spanned
+import android.text.TextPaint
+import android.text.TextUtils
+import android.text.style.ClickableSpan
+import android.text.style.ImageSpan
+import android.text.style.ReplacementSpan
+import android.text.style.URLSpan
+import android.util.TypedValue
+import android.view.Gravity
+import android.view.MotionEvent
+import android.view.View
+import android.view.ViewGroup
+import android.view.ViewOutlineProvider
+import android.view.WindowManager
+import android.view.inputmethod.InputMethodManager
+import android.widget.ArrayAdapter
+import android.widget.Button
+import android.widget.EditText
+import android.widget.ImageButton
+import android.widget.ImageView
+import android.widget.LinearLayout
+import android.widget.PopupWindow
+import android.widget.ScrollView
+import android.widget.Spinner
+import android.widget.TextView
+import android.widget.TableLayout
+import android.widget.TableRow
+import android.widget.HorizontalScrollView
+import android.widget.FrameLayout
+import com.solosu.mtforum.util.ToastUtil as Toast
+
+import androidx.activity.result.ActivityResultLauncher
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.annotation.NonNull
+import androidx.appcompat.app.AlertDialog
+import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.widget.SwitchCompat
+import androidx.fragment.app.FragmentActivity
+import androidx.recyclerview.widget.GridLayoutManager
+import androidx.recyclerview.widget.ItemTouchHelper
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
+import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
+
+import com.bumptech.glide.Glide
+import com.bumptech.glide.load.resource.bitmap.CircleCrop
+import com.google.android.material.bottomsheet.BottomSheetBehavior
+import com.google.android.material.bottomsheet.BottomSheetDialog
+import com.google.android.material.button.MaterialButton
+import com.google.android.material.card.MaterialCardView
+import com.google.android.material.chip.Chip
+import com.google.android.material.chip.ChipGroup
+import com.google.android.material.imageview.ShapeableImageView
+import com.google.android.material.shape.CornerFamily
+import com.google.android.material.shape.ShapeAppearanceModel
+import com.google.android.material.textfield.TextInputEditText
+
+import com.solosu.mtforum.R
+import com.solosu.mtforum.databinding.ItemThreadDetailHeaderBinding
+import com.solosu.mtforum.databinding.ThreadDetailActivityBinding
+import com.solosu.mtforum.model.PostDetail
+import com.solosu.mtforum.model.ReplyItem
+import com.solosu.mtforum.model.Thread
+import com.solosu.mtforum.network.ForumParser
+import com.solosu.mtforum.network.HttpClient
+import com.solosu.mtforum.session.BlacklistManager
+import com.solosu.mtforum.session.FavoritesCache
+import com.solosu.mtforum.session.FollowStateManager
+import com.solosu.mtforum.session.PostCountsCache
+import com.solosu.mtforum.session.UserSessionManager
+import com.solosu.mtforum.ui.login.LoginBottomSheet
+import com.solosu.mtforum.ui.message.ChatActivity
+import com.solosu.mtforum.ui.space.UserProfileActivity
+import com.solosu.mtforum.ui.widget.DialogHelper
+import com.solosu.mtforum.ui.widget.FrostedGlassHelper
+import com.solosu.mtforum.util.AiLog
+import com.solosu.mtforum.util.BBCodeUtil
+import com.solosu.mtforum.util.NavigationHelper
+import com.solosu.mtforum.util.RoundedImageDrawable
+import com.solosu.mtforum.util.UrlDrawable
+
+import org.jsoup.Jsoup
+import org.jsoup.nodes.Document
+import org.jsoup.nodes.Element
+
+import java.io.ByteArrayOutputStream
+import java.io.File
+import java.io.FileOutputStream
+import java.io.InputStream
+import java.util.Locale
+import java.util.regex.Matcher
+import java.util.regex.Pattern
+
+
+
+
+
+
+
+class ThreadDetailActivity : AppCompatActivity() {
+
+    private lateinit var binding: ThreadDetailActivityBinding
+    private lateinit var httpClient: HttpClient
+    private var mBottomSheetDialog: BottomSheetDialog? = null
+    private var mEtReplyDialog: com.solosu.mtforum.ui.widget.SmileyAwareEditText? = null
+    private var mTvReplyTarget: TextView? = null
+    private var mBtnSendReply: MaterialButton? = null
+    private var postDetail: PostDetail? = null
+    private var replyAdapter: ReplyAdapter? = null
+
+    
+
+
+
+
+
+
+    private var headerBinding: ItemThreadDetailHeaderBinding? = null
+    private var tid: String? = null
+    private var onlyOpReplies = false
+    private var repliesDescending = false 
+    private var displayedReplies: MutableList<ReplyItem> = ArrayList()
+    private var isLiked = false
+    private var likeCount = 0
+    private var isFavorited = false
+    private var favoriteCount = 0   
+    private var currentReplyTarget = ""
+    private var isLoadingMore = false
+    private var currentReplyPid = ""
+    private var currentLoginUid: String? = null 
+    
+    private var editingReplyPid: String = ""
+    private var editingReplyItem: ReplyItem? = null
+    private var editOriginalMessage: String = ""
+    private var editFormhash: String = ""
+    private var editDraftTouched = false 
+    private var editPrefilling = false    
+    
+    private var rewardTargetPid = ""
+    private var rewardTargetName = ""
+    private var rewardTargetAvatar = ""
+    private var pendingImageUri: Uri? = null
+    private val pendingUploadAids: MutableList<String> = ArrayList()
+    private var imageUploadInProgress = false
+    
+    private val imageUploadPendingQueue: MutableList<Uri> = ArrayList()
+    private val pendingImageUris: MutableList<Uri> = ArrayList()
+    private val uploadedAidMap: MutableMap<Uri, String> = HashMap()
+
+    
+    private val replyAttachFiles: MutableList<ReplyAttachFile> = ArrayList()
+
+    
+    private var replyFilePickerLauncher: ActivityResultLauncher<Array<String>>? = null
+
+    
+    private var replySmileyCatalog: MutableList<ForumParser.SmileySet>? = null
+    private var replySmileySetIndex = 0
+    private var replySmileyLoading = false
+    private var replySmileyLoadFailed = false
+
+    
+    private var replyHighlightedTool: View? = null
+
+    
+    private var pendingInsertType = -1
+
+    
+    private var currentImageList: MutableList<String> = ArrayList()
+
+    
+    private var imagePickerLauncher: ActivityResultLauncher<PickVisualMediaRequest>? = null
+
+    
+    private var replyBackPressedCallback: androidx.activity.OnBackPressedCallback? = null
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        com.solosu.mtforum.util.UiStyleManager.applyTheme(this)
+        com.solosu.mtforum.util.ThemeManager.applyTheme(this)
+        super.onCreate(savedInstanceState)
+        binding = ThreadDetailActivityBinding.inflate(layoutInflater)
+        setContentView(binding.root)
+        httpClient = HttpClient.getInstance()
+        tid = intent.getStringExtra("tid")
+        if (tid == null) {
+            finish()
+            return
+        }
+        binding.toolbar.setNavigationOnClickListener { finish() }
+        binding.swipeRefresh.setOnRefreshListener { refreshPostDetail() }
+        setupRecyclerView()
+        initReplyPanel()
+        val onBottomReplyBarClick = View.OnClickListener { showReplyBottomSheet(currentReplyTarget) }
+        binding.etReply.setOnClickListener(onBottomReplyBarClick)
+        binding.tilReply.setOnClickListener(onBottomReplyBarClick)
+        binding.layoutReply.setOnClickListener(onBottomReplyBarClick)
+        binding.etReply.isFocusable = false
+        binding.etReply.isCursorVisible = false
+        val commentsClick = View.OnClickListener {
+            
+            scrollToReplySection()
+        }
+        binding.btnComments.setOnClickListener(commentsClick)
+        binding.layoutComments.setOnClickListener(commentsClick)
+
+        val pickImageClick = View.OnClickListener { pickImage() }
+        binding.btnPickImageInline.setOnClickListener(pickImageClick)
+        binding.layoutPickImage.setOnClickListener(pickImageClick)
+
+        binding.btnLike.setOnClickListener { toggleLike() }
+        binding.layoutLike.setOnClickListener { toggleLike() }
+        
+        val showLikers = View.OnLongClickListener {
+            showLikeUsersSheet()
+            true
+        }
+        binding.layoutLike.setOnLongClickListener(showLikers)
+        binding.btnLike.setOnLongClickListener(showLikers)
+
+        
+        com.solosu.mtforum.util.ScrollToTopHelper.attachRecyclerView(binding.toolbar, binding.recyclerReplies)
+
+        binding.btnFavorite.setOnClickListener { toggleFavorite() }
+        binding.layoutFavorite.setOnClickListener { toggleFavorite() }
+        binding.btnShare.setOnClickListener { shareThread() }
+        
+        binding.btnReward.setOnClickListener { showRewardDialog() }
+        binding.btnKick.setOnClickListener { showKickDialog() }
+        loadPostDetail()
+    }
+
+    
+
+
+
+
+
+
+
+
+
+
+    private var headerView: View? = null
+
+    private fun obtainHeaderView(): View {
+        headerView?.let { return it }
+        
+        
+        
+        
+        val v = layoutInflater.inflate(R.layout.item_thread_detail_header,
+                binding.recyclerReplies, false)
+        
+        v.layoutParams = RecyclerView.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT)
+        headerView = v
+        return v
+    }
+
+    
+    private fun ensureHeaderBound() {
+        if (headerBinding != null) return
+        bindThreadHeader(obtainHeaderView())
+    }
+
+    
+
+
+
+
+
+    private fun bindThreadHeader(view: View) {
+        val hb: ItemThreadDetailHeaderBinding
+        try {
+            hb = ItemThreadDetailHeaderBinding.bind(view)
+        } catch (e: Throwable) {
+            android.util.Log.e("ThreadDetail", "Failed to bind thread header", e)
+            return
+        }
+        headerBinding = hb
+
+        hb.btnViewHidden.setOnClickListener { viewHiddenContent() }
+        hb.layoutHiddenContent.setOnClickListener { viewHiddenContent() }
+        
+        applyHiddenCardTheme(hb)
+
+        
+        hb.btnCollapseImages.setOnClickListener { toggleImageGallery() }
+
+        
+        hb.btnSegmentOp.setOnClickListener {
+            onlyOpReplies = !onlyOpReplies
+            updateReplyFilterAndOrder()
+        }
+        hb.btnSegmentAsc.setOnClickListener {
+            if (repliesDescending) {
+                repliesDescending = false
+                refreshPostDetail()
+            }
+        }
+        hb.btnSegmentDesc.setOnClickListener {
+            if (!repliesDescending) {
+                repliesDescending = true
+                refreshPostDetail()
+            }
+        }
+
+        
+        applyHeaderStaticState()
+    }
+
+    private fun applyHiddenCardTheme(hb: ItemThreadDetailHeaderBinding) {
+        val themeColor = com.solosu.mtforum.util.ThemeManager.getThemeColor(this)
+        
+        val btnBg = GradientDrawable().apply {
+            cornerRadius = dpToPx(16).toFloat()
+            setColor(themeColor)
+        }
+        hb.btnViewHidden.background = btnBg
+        
+        val circleBg = GradientDrawable().apply {
+            shape = GradientDrawable.OVAL
+            val alphaColor = androidx.core.graphics.ColorUtils.setAlphaComponent(themeColor, 0x26)
+            setColor(alphaColor)
+        }
+        hb.layoutLockCircle.background = circleBg
+        
+        hb.ivHiddenLock.setColorFilter(themeColor)
+    }
+
+    private fun updateSegmentPill(tv: TextView, isSelected: Boolean) {
+        if (isSelected) {
+            tv.setBackgroundResource(R.drawable.bg_segment_pill_selected)
+            tv.setTextColor(getColor(R.color.text_primary))
+            tv.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL))
+        } else {
+            tv.setBackgroundColor(android.graphics.Color.TRANSPARENT)
+            tv.setTextColor(getColor(R.color.text_secondary))
+            tv.setTypeface(null, Typeface.NORMAL)
+        }
+    }
+
+    
+
+
+
+
+    private fun applyHeaderStaticState() {
+        val hb = headerBinding ?: return
+        val detail = postDetail ?: return
+        hb.tvThreadTitle.text = if (!TextUtils.isEmpty(detail.title)) detail.title else ""
+        hb.tvThreadTitle.isLongClickable = true
+        hb.tvThreadTitle.setOnLongClickListener {
+            reportPost(null)
+            true
+        }
+        if (!TextUtils.isEmpty(detail.forumName)) {
+            binding.tvToolbarForum.visibility = View.VISIBLE
+            binding.tvToolbarForum.text = detail.forumName
+        } else {
+            binding.tvToolbarForum.visibility = View.GONE
+        }
+        val avatarUrl = detail.avatarUrl
+        if (!TextUtils.isEmpty(avatarUrl)) {
+            Glide.with(this as FragmentActivity).load(avatarUrl).transform(CircleCrop())
+                .placeholder(R.drawable.ic_account).error(R.drawable.ic_account)
+                .into(hb.ivAuthorAvatar)
+        } else {
+            hb.ivAuthorAvatar.setImageResource(R.drawable.ic_account)
+        }
+        hb.tvAuthorName.text = if (!TextUtils.isEmpty(detail.author)) detail.author else "匿名"
+        val authorUid = detail.authorUid
+        if (!TextUtils.isEmpty(authorUid)) {
+            hb.ivAuthorAvatar.setOnClickListener { openUserProfile(authorUid, detail.author) }
+            hb.tvAuthorName.setOnClickListener { openUserProfile(authorUid, detail.author) }
+        }
+        if (!TextUtils.isEmpty(detail.authorLevel)) {
+            hb.tvAuthorLevel.visibility = View.VISIBLE
+            hb.tvAuthorLevel.text = detail.authorLevel
+        } else {
+            hb.tvAuthorLevel.visibility = View.GONE
+        }
+        hb.tvPublishTime.text = if (!TextUtils.isEmpty(detail.publishTime)) detail.publishTime else ""
+        hb.tvLocation.visibility = View.GONE
+
+        
+        
+        
+        val galleryList = if (currentImageList.isNotEmpty()) currentImageList else detail.imageUrls
+        rebuildImageGallery(galleryList)
+        
+        
+        bindRewardBadge(detail)
+    }
+
+    
+
+
+
+
+
+    private fun rebuildImageGallery(imageList: List<String>?) {
+        val hb = headerBinding ?: return
+        
+        hb.cardImageGallery.visibility = View.GONE
+        hb.llImageGallery.removeAllViews()
+    }
+
+    
+
+
+    private fun bindRewardBadge(detail: PostDetail) {
+    }
+
+    private fun setupRecyclerView() {
+        replyAdapter = ReplyAdapter(ArrayList())
+        
+        replyAdapter!!.setOnReplyLongClickListener(object : ReplyAdapter.OnReplyLongClickListener {
+            override fun onReplyLongClick(item: ReplyItem?, position: Int) {
+                
+                
+                AiLog.e(
+                    "menu",
+                    "评论长按 pid=" + item?.pid + " author=" + item?.author +
+                            " authorUid=" + item?.authorUid + " myUid=" + loginUid()
+                )
+                showReplyActionMenu(item)
+            }
+        })
+        replyAdapter!!.setOnReplyClickListener(object : ReplyAdapter.OnReplyClickListener {
+            override fun onReplyClick(item: ReplyItem?, position: Int) {
+                val author = if (item != null) item.author else ""
+                if (!TextUtils.isEmpty(author)) {
+                    currentReplyPid = if (item != null) item.pid ?: "" else ""
+                    currentReplyTarget = "回复 @$author："
+                } else {
+                    currentReplyPid = ""
+                    currentReplyTarget = ""
+                }
+                showReplyBottomSheet(currentReplyTarget)
+            }
+        })
+        replyAdapter!!.setOnUserClickListener(object : ReplyAdapter.OnUserClickListener {
+            override fun onUserClick(item: ReplyItem?, position: Int) {
+                val uid = item?.authorUid
+                if (!TextUtils.isEmpty(uid)) {
+                    val intent = Intent(this@ThreadDetailActivity, UserProfileActivity::class.java)
+                    intent.putExtra(ChatActivity.EXTRA_UID, uid)
+                    intent.putExtra("username", item!!.author)
+                    startActivity(intent)
+                }
+            }
+        })
+        binding.recyclerReplies.layoutManager = LinearLayoutManager(this)
+        binding.recyclerReplies.adapter = replyAdapter
+
+        
+        
+        replyAdapter!!.setHeaderProvider(object : ReplyAdapter.HeaderProvider {
+            override fun onCreateHeaderView(parent: ViewGroup): View {
+                return obtainHeaderView()
+            }
+
+            override fun onBindHeaderView(view: View) {
+                bindThreadHeader(view)
+            }
+        })
+
+        binding.recyclerReplies.addOnScrollListener(object : RecyclerView.OnScrollListener() {
+            override fun onScrolled(rv: RecyclerView, dx: Int, dy: Int) {
+                
+                if (dy > 0) maybeAutoLoadMore()
+            }
+        })
+    }
+
+    private fun loadPostDetail() {
+        if (isFinishing || isDestroyed) {
+            return
+        }
+        binding.progressBar.visibility = View.VISIBLE
+        binding.swipeRefresh.isEnabled = false
+        java.lang.Thread {
+            try {
+                val detailUrl = ForumParser.getThreadDetailUrl(tid, getReplyOrder()) +
+                        "&_load=" + System.currentTimeMillis()
+                httpClient.syncFromCookieManager()
+                val html = httpClient.get(detailUrl)
+                if (TextUtils.isEmpty(html)) {
+                    throw IllegalStateException("服务器返回空页面，请检查网络后重试")
+                }
+                val detail = ForumParser.parseThreadDetail(html)
+                refreshServerActionState(detail)
+                if (!TextUtils.isEmpty(detail.authorUid)) {
+                    detail.isFollowed = FollowStateManager.resolve(this, detail.authorUid, detail.isFollowed)
+                }
+                
+                runOnUiThread {
+                    if (isFinishing || isDestroyed) return@runOnUiThread
+                    bindData(detail, true)
+                }
+                
+                fetchRepliesUpTo(detail, 20)
+                
+                runOnUiThread {
+                    if (isFinishing || isDestroyed) return@runOnUiThread
+                    refreshRepliesFromDetail(detail)
+                }
+            } catch (e: Exception) {
+                runOnUiThread {
+                    if (isFinishing || isDestroyed) return@runOnUiThread
+                    binding.progressBar.visibility = View.GONE
+                    binding.swipeRefresh.isEnabled = true
+                    val message = if (TextUtils.isEmpty(e.message)) "网络异常，请下拉刷新重试" else e.message
+                    Toast.makeText(this, "加载失败: $message", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }.start()
+    }
+
+    private fun getReplyOrderUrl(): String {
+        return ForumParser.getThreadDetailUrl(tid, getReplyOrder())
+    }
+
+    fun refreshPostDetail() {
+        if (isFinishing || isDestroyed) {
+            return
+        }
+        java.lang.Thread {
+            try {
+                val detailUrl = ForumParser.getThreadDetailUrl(tid, getReplyOrder()) +
+                        "&_refresh=" + System.currentTimeMillis()
+                httpClient.syncFromCookieManager()
+                val html = httpClient.get(detailUrl)
+                if (TextUtils.isEmpty(html)) {
+                    throw IllegalStateException("服务器返回空页面，请检查网络后重试")
+                }
+                val detail = ForumParser.parseThreadDetail(html)
+                fetchRepliesUpTo(detail, 20)
+                refreshServerActionState(detail)
+                if (!TextUtils.isEmpty(detail.authorUid)) {
+                    detail.isFollowed = FollowStateManager.resolve(this, detail.authorUid, detail.isFollowed)
+                }
+                runOnUiThread {
+                    if (isFinishing || isDestroyed) return@runOnUiThread
+                    binding.swipeRefresh.isRefreshing = false
+                    applyServerActionState(detail)
+                    likeCount = maxOf(0, detail.likeCount)
+                    updateLikeIcon()
+                    updateFavoriteIcon()
+                    favoriteCount = maxOf(0, detail.favoriteCount)
+                    updateCountBadge(binding.tvFavoriteBadge, favoriteCount)
+                    bindData(detail, false)
+                }
+            } catch (e: Exception) {
+                runOnUiThread {
+                    if (isFinishing || isDestroyed) return@runOnUiThread
+                    binding.swipeRefresh.isRefreshing = false
+                    val message = if (TextUtils.isEmpty(e.message)) "网络异常，请稍后重试" else e.message
+                    Toast.makeText(this, "刷新失败: $message", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }.start()
+    }
+
+    private fun bindData(postDetailArg: PostDetail?, scrollToTop: Boolean) {
+        if (isFinishing || isDestroyed) {
+            return
+        }
+        if (postDetailArg == null) {
+            binding.progressBar.visibility = View.GONE
+            binding.swipeRefresh.isEnabled = true
+            Toast.makeText(this, "帖子内容为空，请下拉刷新重试", Toast.LENGTH_SHORT).show()
+            return
+        }
+        val postDetail = postDetailArg
+        this.postDetail = postDetail
+
+        
+        try {
+            com.solosu.mtforum.session.BrowseHistoryManager.add(
+                applicationContext,
+                postDetail.tid,
+                postDetail.title,
+                postDetail.author,
+                postDetail.forumName
+            )
+        } catch (ignored: Exception) {
+        }
+        
+        
+        ensureHeaderBound()
+        binding.progressBar.visibility = View.GONE
+        binding.swipeRefresh.isEnabled = true
+        if (!TextUtils.isEmpty(postDetail.forumName)) {
+            binding.tvToolbarForum.visibility = View.VISIBLE
+            binding.tvToolbarForum.text = postDetail.forumName
+        } else {
+            binding.tvToolbarForum.visibility = View.GONE
+        }
+        headerBinding!!.tvThreadTitle.text = if (!TextUtils.isEmpty(postDetail.title)) postDetail.title else ""
+        
+        headerBinding!!.tvThreadTitle.isLongClickable = true
+        headerBinding!!.tvThreadTitle.setOnLongClickListener {
+            reportPost(null)
+            true
+        }
+        val avatarUrl = postDetail.avatarUrl
+        if (!TextUtils.isEmpty(avatarUrl)) {
+            Glide.with(this as FragmentActivity).load(avatarUrl).transform(CircleCrop())
+                .placeholder(R.drawable.ic_account).error(R.drawable.ic_account)
+                .into(headerBinding!!.ivAuthorAvatar)
+        } else {
+            headerBinding!!.ivAuthorAvatar.setImageResource(R.drawable.ic_account)
+        }
+        headerBinding!!.tvAuthorName.text = if (!TextUtils.isEmpty(postDetail.author)) postDetail.author else "匿名"
+        val authorUid = postDetail.authorUid
+        if (!TextUtils.isEmpty(authorUid)) {
+            headerBinding!!.ivAuthorAvatar.setOnClickListener { openUserProfile(authorUid, postDetail.author) }
+            headerBinding!!.tvAuthorName.setOnClickListener { openUserProfile(authorUid, postDetail.author) }
+        }
+        if (!TextUtils.isEmpty(postDetail.authorLevel)) {
+            headerBinding!!.tvAuthorLevel.visibility = View.VISIBLE
+            headerBinding!!.tvAuthorLevel.text = postDetail.authorLevel
+        } else {
+            headerBinding!!.tvAuthorLevel.visibility = View.GONE
+        }
+        headerBinding!!.tvPublishTime.text = if (!TextUtils.isEmpty(postDetail.publishTime)) postDetail.publishTime else ""
+        headerBinding!!.tvLocation.visibility = View.GONE
+        
+        if (postDetail.favoriteCount > 0) {
+            FavoritesCache.put(this, postDetail.tid, postDetail.favoriteCount)
+        }
+        if (httpClient.isLoggedIn() && !TextUtils.isEmpty(postDetail.author)) {
+            headerBinding!!.btnFollow.visibility = View.VISIBLE
+            if (isOwnThread(postDetail)) {
+                
+                headerBinding!!.btnFollow.text = "编辑"
+                headerBinding!!.btnFollow.setOnClickListener { openEditThread() }
+            } else {
+                headerBinding!!.btnFollow.setText(
+                    if (postDetail.isFollowed) R.string.action_followed else R.string.action_follow
+                )
+                headerBinding!!.btnFollow.setOnClickListener { toggleFollow() }
+            }
+        } else {
+            headerBinding!!.btnFollow.visibility = View.GONE
+        }
+        val contentHtml = postDetail.contentHtml
+        var hiddenNotice = ""
+        if (!TextUtils.isEmpty(contentHtml)) {
+            val converted = BBCodeUtil.convertBBCodeToHtml(contentHtml)
+            headerBinding!!.tvContent.visibility = View.VISIBLE
+            val imageList = ArrayList<String>()
+            val footerSplit = splitEditFooter(converted)
+            val cleaned = extractAndSeparateImages(footerSplit[0], imageList)
+            val imageUrls = postDetail.imageUrls ?: ArrayList<String>().also { postDetail.imageUrls = it }
+            val missingImages = ArrayList<String>()
+            if (imageUrls.isNotEmpty()) {
+                for (str in imageUrls) {
+                    val alreadyInContent = imageList.any { isSameImage(it, str) }
+                    if (!alreadyInContent && missingImages.none { isSameImage(it, str) }) {
+                        imageList.add(str)
+                        missingImages.add(str)
+                    }
+                }
+            }
+            
+            var fullHtml = cleaned
+            if (missingImages.isNotEmpty()) {
+                val sbAttach = StringBuilder()
+                for (imgUrl in missingImages) {
+                    sbAttach.append("<br><br><img src=\"").append(imgUrl).append("\">")
+                }
+                fullHtml += sbAttach.toString()
+            }
+            if (!TextUtils.isEmpty(footerSplit[1])) {
+                headerBinding!!.layoutEditFooter.visibility = View.VISIBLE
+                headerBinding!!.tvEditFooter.text = footerSplit[1]
+            } else {
+                headerBinding!!.layoutEditFooter.visibility = View.GONE
+            }
+            
+            currentImageList = ArrayList(imageList)
+
+            val unlocked = postDetail.hasHiddenContent && httpClient.isLoggedIn()
+                    && !TextUtils.isEmpty(postDetail.hiddenContentHtml)
+                    && !isHiddenContentLocked(postDetail.hiddenContentHtml)
+
+            val displayHtml: String
+            if (unlocked) {
+                
+                
+                val quotePattern = Pattern.compile(
+                    "<div\\s+class=[\"'](?:comiis_quote|locked)[^\"']*[\"']>(.*?)</div>",
+                    Pattern.CASE_INSENSITIVE or Pattern.DOTALL
+                )
+                val qMatcher = quotePattern.matcher(fullHtml)
+                val sbQuote = StringBuffer()
+                var quoteFound = false
+                while (qMatcher.find()) {
+                    quoteFound = true
+                    var inner = qMatcher.group(1) ?: ""
+                    qMatcher.appendReplacement(sbQuote, Matcher.quoteReplacement("<div class=\"unlocked-hidden-card\">$inner</div>"))
+                }
+                qMatcher.appendTail(sbQuote)
+                var resolvedHtml = sbQuote.toString()
+                if (!quoteFound && !TextUtils.isEmpty(postDetail.hiddenContentHtml)) {
+                    val fallbackHidden = postDetail.hiddenContentHtml!!
+                    resolvedHtml = "<div class=\"unlocked-hidden-card\">$fallbackHidden</div>" + resolvedHtml
+                }
+                displayHtml = resolvedHtml
+                headerBinding!!.layoutHiddenContent.visibility = View.GONE
+            } else if (postDetail.hasHiddenContent) {
+                
+                val placeholders = replaceHiddenQuoteWithPlaceholder(fullHtml)
+                displayHtml = placeholders[0]
+                hiddenNotice = placeholders[1]
+                headerBinding!!.layoutHiddenContent.visibility = View.VISIBLE
+                headerBinding!!.layoutHiddenLockedRow.visibility = View.VISIBLE
+                if (httpClient.isLoggedIn()) {
+                    headerBinding!!.tvHiddenContentHint.text = "回复本帖后自动刷新解锁"
+                    headerBinding!!.btnViewHidden.text = "去回复"
+                } else {
+                    headerBinding!!.tvHiddenContentHint.text = "请先登录并回复查看"
+                    headerBinding!!.btnViewHidden.text = "去登录"
+                }
+                applyHiddenCardTheme(headerBinding!!)
+                headerBinding!!.tvHiddenContent.visibility = View.GONE
+            } else {
+                displayHtml = fullHtml
+                headerBinding!!.layoutHiddenContent.visibility = View.GONE
+            }
+
+            renderContentSections(displayHtml, hiddenNotice)
+            rebuildImageGallery(imageList)
+        } else {
+            headerBinding!!.tvContent.visibility = View.VISIBLE
+            headerBinding!!.cardImageGallery.visibility = View.GONE
+            headerBinding!!.tvContent.text = "[内容加载中，请刷新重试]"
+            headerBinding!!.tvContent.setTextColor(getColor(R.color.text_hint))
+            headerBinding!!.tvContent.textSize = 14.0f
+            headerBinding!!.tvContent.gravity = Gravity.CENTER
+            headerBinding!!.layoutHiddenContent.visibility = View.GONE
+        }
+        if (postDetail.likedStateKnown) {
+            isLiked = postDetail.isLiked
+            saveLikedState(isLiked)
+        } else {
+            isLiked = restoreLikedState()
+        }
+        likeCount = maxOf(0, postDetail.likeCount)
+        updateLikeIcon()
+        updateCountBadge(binding.tvCommentsBadge, postDetail.replyCount)
+        updateCountBadge(binding.tvLikeBadge, likeCount)
+        if (postDetail.favoritedStateKnown) {
+            isFavorited = postDetail.isFavorited
+            saveFavoritedState(isFavorited)
+        } else {
+            isFavorited = restoreFavoritedState()
+        }
+        updateFavoriteIcon()
+        favoriteCount = maxOf(0, postDetail.favoriteCount)
+        updateCountBadge(binding.tvFavoriteBadge, favoriteCount)
+        var replies = postDetail.replies
+        if (replies == null) {
+            replies = ArrayList()
+        }
+        
+        val bl = BlacklistManager.uidSet(this)
+        if (!bl.isEmpty()) {
+            val itr = replies.iterator()
+            while (itr.hasNext()) {
+                val r = itr.next()
+                if (r != null && r.authorUid != null && bl.contains(r.authorUid)) itr.remove()
+            }
+        }
+        displayedReplies = ArrayList(replies)
+        replyAdapter!!.setFooterActionListener(object : ReplyAdapter.FooterActionListener {
+            override fun onRetry() {
+                replyAdapter?.setFooterState(null)
+                loadMoreReplies()
+            }
+        })
+        updateReplyFilterAndOrder()
+        val replyCount = postDetail.replyCount
+        if (replyCount > 0) {
+            headerBinding!!.tvReplyCount.visibility = View.VISIBLE
+            headerBinding!!.tvReplyCount.text = "($replyCount)"
+        } else {
+            headerBinding!!.tvReplyCount.visibility = View.GONE
+        }
+
+        fun updateFoldedBadge(count: Int, isExpanded: Boolean) {
+            val hb = headerBinding ?: return
+            if (count > 0) {
+                hb.tvFoldedBadge.visibility = View.VISIBLE
+                hb.tvFoldedBadge.text = if (isExpanded) "收起已折叠" else "已折叠 $count 条"
+            } else {
+                hb.tvFoldedBadge.visibility = View.GONE
+            }
+        }
+
+        replyAdapter?.onFoldStateChanged = { count, isExpanded ->
+            updateFoldedBadge(count, isExpanded)
+        }
+        updateFoldedBadge(replyAdapter?.foldedCount ?: 0, replyAdapter?.isFoldExpanded ?: false)
+
+        headerBinding!!.tvFoldedBadge.setOnClickListener {
+            replyAdapter?.toggleFoldExpanded()
+        }
+        binding.layoutReply.visibility = if (httpClient.isLoggedIn()) View.VISIBLE else View.GONE
+        
+        bindRewardBadge(postDetail)
+        if (scrollToTop && binding.recyclerReplies.computeVerticalScrollOffset() != 0) {
+            binding.recyclerReplies.scrollToPosition(0)
+        }
+    }
+
+    private fun openUserProfile(uid: String?, username: String?) {
+        val intent = Intent(this, UserProfileActivity::class.java)
+        intent.putExtra(ChatActivity.EXTRA_UID, uid)
+        intent.putExtra("username", username)
+        startActivity(intent)
+    }
+
+    private fun toggleImageGallery() {
+        val isCollapsed = headerBinding!!.hsvImageGallery.visibility == View.GONE
+        if (isCollapsed) {
+            headerBinding!!.hsvImageGallery.visibility = View.VISIBLE
+            headerBinding!!.hsvImageGallery.alpha = 0.0f
+            headerBinding!!.hsvImageGallery.animate().alpha(1.0f).setDuration(300L).start()
+            headerBinding!!.btnCollapseImages.animate().rotation(90.0f).setDuration(200L).start()
+            return
+        }
+        headerBinding!!.hsvImageGallery.animate().alpha(0.0f).setDuration(200L)
+            .withEndAction { headerBinding!!.hsvImageGallery.visibility = View.GONE }
+            .start()
+        headerBinding!!.btnCollapseImages.animate().rotation(-90.0f).setDuration(200L).start()
+    }
+
+    private fun getReplyOrder(): String {
+        return if (repliesDescending) "desc" else "asc"
+    }
+
+    private fun updateReplyFilterAndOrder() {
+        val source = displayedReplies
+        val result = ArrayList<ReplyItem>()
+        val opUid = postDetail?.authorUid ?: ""
+        val opName = postDetail?.author ?: ""
+        for (item in source) {
+            if (item != null) {
+                if (onlyOpReplies) {
+                    var isOp = item.isOP
+                    if (!isOp && !TextUtils.isEmpty(opUid)) {
+                        isOp = opUid == item.authorUid
+                    }
+                    if (!isOp && !TextUtils.isEmpty(opName)) {
+                        isOp = opName == item.author
+                    }
+                    if (!isOp) {
+                        
+                        continue
+                    }
+                }
+                result.add(item)
+            }
+        }
+        replyAdapter!!.updateData(result)
+        
+        if (postDetail != null && postDetail!!.currentPage < postDetail!!.totalPages) {
+            replyAdapter!!.setFooterState(null)
+            
+            binding.recyclerReplies.post { maybeAutoLoadMore() }
+        } else {
+            replyAdapter!!.setFooterState(ReplyAdapter.FooterState.END)
+        }
+        
+        headerBinding?.let {
+            updateSegmentPill(it.btnSegmentOp, onlyOpReplies)
+            updateSegmentPill(it.btnSegmentAsc, !repliesDescending)
+            updateSegmentPill(it.btnSegmentDesc, repliesDescending)
+        }
+        if (result.isEmpty()) {
+            
+            binding.recyclerReplies.visibility = View.VISIBLE
+            binding.recyclerReplies.scrollToPosition(0)
+            headerBinding?.tvEmptyReplies?.visibility = View.VISIBLE
+        } else {
+            binding.recyclerReplies.visibility = View.VISIBLE
+            headerBinding?.tvEmptyReplies?.visibility = View.GONE
+        }
+    }
+
+    
+    private fun scrollToReplySection() {
+        binding.recyclerReplies.post {
+            val lm = binding.recyclerReplies.layoutManager as? LinearLayoutManager
+            if (lm != null) {
+                lm.scrollToPositionWithOffset(ReplyAdapter.HEADER_ITEM_COUNT, 0)
+            } else {
+                binding.recyclerReplies.scrollToPosition(ReplyAdapter.HEADER_ITEM_COUNT)
+            }
+        }
+    }
+
+    
+
+    
+    private var isOpeningReplyPanel = false
+
+    private fun initReplyPanel() {
+        val onBottomReplyBarClick = View.OnClickListener { showReplyBottomSheet(currentReplyTarget) }
+        binding.etReply.setOnClickListener(onBottomReplyBarClick)
+        binding.tilReply.setOnClickListener(onBottomReplyBarClick)
+        binding.layoutReply.setOnClickListener(onBottomReplyBarClick)
+        binding.etReply.isFocusable = false
+        binding.etReply.isCursorVisible = false
+
+        binding.vReplyMask.setOnClickListener { hideReplyPanel() }
+
+        val panel = binding.containerReplyPanel
+        val etReplyDialog = panel.findViewById<com.solosu.mtforum.ui.widget.SmileyAwareEditText>(R.id.et_reply_dialog)
+        val btnSend = panel.findViewById<MaterialButton>(R.id.btn_send_reply)
+        val tvTarget = panel.findViewById<TextView>(R.id.tv_reply_target)
+        val btnPickImage = panel.findViewById<ImageButton>(R.id.btn_pick_image)
+
+        
+        panel.findViewById<View>(R.id.btn_smile)?.setOnClickListener { toggleReplySmileyPanel() }
+        panel.findViewById<View>(R.id.btn_at)?.setOnClickListener { toggleReplyAtPanel() }
+        panel.findViewById<View>(R.id.btn_insert)?.setOnClickListener { toggleReplyInsertPanel() }
+        panel.findViewById<View>(R.id.btn_attach)?.setOnClickListener { hideReplyToolPanels(); pickReplyFile() }
+        panel.findViewById<View>(R.id.btn_advanced)?.setOnClickListener { toggleReplyAdvancedPanel() }
+        panel.findViewById<View>(R.id.btn_at_insert)?.setOnClickListener {
+            val name = panel.findViewById<android.widget.EditText>(R.id.et_at_username)?.text?.toString()?.trim() ?: ""
+            if (name.isEmpty()) {
+                Toast.makeText(this, "请输入用户名", Toast.LENGTH_SHORT).show()
+            } else {
+                insertIntoReplyDialog("@$name ")
+                panel.findViewById<android.widget.EditText>(R.id.et_at_username)?.setText("")
+                hideReplyToolPanels()
+            }
+        }
+
+        mEtReplyDialog = etReplyDialog
+        mTvReplyTarget = tvTarget
+        mBtnSendReply = btnSend
+
+        val card = panel.findViewById<View>(R.id.dialog_card)
+        card?.setBackgroundResource(R.drawable.bg_reply_sheet)
+
+        etReplyDialog?.onImageReceivedListener = { uri ->
+            addPendingImages(listOf(uri))
+            Toast.makeText(this@ThreadDetailActivity, "已添加图片", Toast.LENGTH_SHORT).show()
+            true
+        }
+
+        btnSend?.setOnClickListener {
+            val text = etReplyDialog?.text?.toString()?.trim() ?: ""
+            if (TextUtils.isEmpty(text) && pendingImageUris.isEmpty()) {
+                etReplyDialog?.error = getString(R.string.reply_hint_empty)
+            } else {
+                etReplyDialog?.error = null
+                if (!TextUtils.isEmpty(editingReplyPid)) {
+                    
+                    attemptEditReply(text)
+                } else {
+                    val attachTags = buildAttachTags()
+                    attemptReply(attachTags + text, etReplyDialog)
+                }
+            }
+        }
+
+        
+        etReplyDialog?.addTextChangedListener(object : android.text.TextWatcher {
+            override fun afterTextChanged(s: android.text.Editable?) {
+                if (!editPrefilling && !TextUtils.isEmpty(editingReplyPid)) editDraftTouched = true
+            }
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+        })
+
+        btnPickImage?.setOnClickListener { pickImage() }
+        registerReplyFilePicker()
+
+        
+        etReplyDialog?.onKeyPreImeListener = {
+            hideReplyPanel()
+            true
+        }
+
+        
+        androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(binding.containerReplyPanel) { _, insets ->
+            val imeVisible = insets.isVisible(androidx.core.view.WindowInsetsCompat.Type.ime())
+            if (!imeVisible && isReplyPanelShowing() && !isOpeningReplyPanel) {
+                hideReplyPanel()
+            }
+            insets
+        }
+
+        
+        val callback = object : androidx.activity.OnBackPressedCallback(false) {
+            override fun handleOnBackPressed() {
+                hideReplyPanel()
+            }
+        }
+        onBackPressedDispatcher.addCallback(this, callback)
+        replyBackPressedCallback = callback
+    }
+
+    
+    private class ReplyAttachFile(val name: String, val aid: String)
+
+    
+    private fun insertIntoReplyDialog(text: String) {
+        val et = mEtReplyDialog ?: return
+        val editable = et.text
+        if (editable == null) {
+            et.setText(text)
+            return
+        }
+        var start = et.selectionStart
+        val end = et.selectionEnd
+        if (start < 0) start = editable.length
+        if (end > start) {
+            editable.replace(start, end, text)
+        } else {
+            editable.insert(start, text)
+        }
+        val caret = (start + text.length).coerceAtMost(editable.length)
+        et.setSelection(caret)
+    }
+
+    
+    private fun hideReplyToolPanels() {
+        val panel = binding.containerReplyPanel
+        panel.findViewById<View>(R.id.ll_smiley_panel)?.visibility = View.GONE
+        panel.findViewById<View>(R.id.ll_at_panel)?.visibility = View.GONE
+        panel.findViewById<View>(R.id.ll_insert_panel)?.visibility = View.GONE
+        panel.findViewById<View>(R.id.ll_reply_advanced)?.visibility = View.GONE
+        updateReplyToolHighlight(null)
+    }
+
+    
+    private fun selectedToolBackground(): android.graphics.drawable.GradientDrawable {
+        val themeColor = com.solosu.mtforum.util.ThemeManager.getThemeColor(this)
+        return android.graphics.drawable.GradientDrawable().apply {
+            cornerRadius = 12f * resources.displayMetrics.density
+            setColor(androidx.core.graphics.ColorUtils.setAlphaComponent(themeColor, 0x1F))
+            setStroke((1.2f * resources.displayMetrics.density).toInt(),
+                androidx.core.graphics.ColorUtils.setAlphaComponent(themeColor, 0x59))
+        }
+    }
+
+    
+    private fun updateReplyToolHighlight(target: View?) {
+        if (replyHighlightedTool !== target) {
+            replyHighlightedTool?.let {
+                it.setBackgroundResource(borderlessSelectableBackground())
+                androidx.core.widget.ImageViewCompat.setImageTintList(
+                    it as ImageView,
+                    android.content.res.ColorStateList.valueOf(getColor(R.color.text_secondary))
+                )
+            }
+        }
+        replyHighlightedTool = target
+        target?.let {
+            it.background = selectedToolBackground()
+            androidx.core.widget.ImageViewCompat.setImageTintList(
+                it as ImageView,
+                android.content.res.ColorStateList.valueOf(
+                    com.solosu.mtforum.util.ThemeManager.getThemeColor(this)
+                )
+            )
+        }
+    }
+
+    
+    private fun borderlessSelectableBackground(): Int {
+        val tv = android.util.TypedValue()
+        theme.resolveAttribute(android.R.attr.selectableItemBackgroundBorderless, tv, true)
+        return tv.resourceId
+    }
+
+    
+    private fun updateReplyInsertChip(type: Int) {
+        val panel = binding.containerReplyPanel
+        val ids = intArrayOf(
+            R.id.btn_ins_link, R.id.btn_ins_image, R.id.btn_ins_audio, R.id.btn_ins_video,
+            R.id.btn_ins_flash, R.id.btn_ins_quote, R.id.btn_ins_code, R.id.btn_ins_free, R.id.btn_ins_hide
+        )
+        for (i in ids.indices) {
+            val chip = panel.findViewById<TextView>(ids[i]) ?: continue
+            if (i + 1 == type) {
+                chip.background = selectedToolBackground()
+                chip.setTextColor(com.solosu.mtforum.util.ThemeManager.getThemeColor(this))
+            } else {
+                chip.setBackgroundResource(R.drawable.bg_post_forum_chip)
+                chip.setTextColor(getColor(R.color.text_secondary))
+            }
+        }
+    }
+
+    private fun toggleReplyAdvancedPanel() {
+        val panel = binding.containerReplyPanel
+        val adv = panel.findViewById<View>(R.id.ll_reply_advanced) ?: return
+        val visible = adv.visibility == View.VISIBLE
+        hideReplyToolPanels()
+        if (!visible) {
+            adv.visibility = View.VISIBLE
+            updateReplyToolHighlight(panel.findViewById<View>(R.id.btn_advanced))
+        }
+    }
+
+    private fun toggleReplyAtPanel() {
+        val panel = binding.containerReplyPanel
+        val atPanel = panel.findViewById<View>(R.id.ll_at_panel) ?: return
+        val visible = atPanel.visibility == View.VISIBLE
+        hideReplyToolPanels()
+        if (!visible) {
+            atPanel.visibility = View.VISIBLE
+            updateReplyToolHighlight(panel.findViewById<View>(R.id.btn_at))
+            panel.findViewById<android.widget.EditText>(R.id.et_at_username)?.requestFocus()
+        }
+    }
+
+    
+    private fun toggleReplyInsertPanel() {
+        val panel = binding.containerReplyPanel
+        val insert = panel.findViewById<View>(R.id.ll_insert_panel) ?: return
+        val visible = insert.visibility == View.VISIBLE
+        hideReplyToolPanels()
+        if (visible) return
+        insert.visibility = View.VISIBLE
+        updateReplyToolHighlight(panel.findViewById<View>(R.id.btn_insert))
+        panel.findViewById<View>(R.id.ll_insert_input)?.visibility = View.GONE
+        panel.findViewById<View>(R.id.btn_ins_link)?.setOnClickListener { selectInsertType(panel, INSERT_LINK) }
+        panel.findViewById<View>(R.id.btn_ins_image)?.setOnClickListener { selectInsertType(panel, INSERT_IMAGE) }
+        panel.findViewById<View>(R.id.btn_ins_audio)?.setOnClickListener { selectInsertType(panel, INSERT_AUDIO) }
+        panel.findViewById<View>(R.id.btn_ins_video)?.setOnClickListener { selectInsertType(panel, INSERT_VIDEO) }
+        panel.findViewById<View>(R.id.btn_ins_flash)?.setOnClickListener { selectInsertType(panel, INSERT_FLASH) }
+        panel.findViewById<View>(R.id.btn_ins_quote)?.setOnClickListener { selectInsertType(panel, INSERT_QUOTE) }
+        panel.findViewById<View>(R.id.btn_ins_code)?.setOnClickListener { selectInsertType(panel, INSERT_CODE) }
+        panel.findViewById<View>(R.id.btn_ins_free)?.setOnClickListener { selectInsertType(panel, INSERT_FREE) }
+        panel.findViewById<View>(R.id.btn_ins_hide)?.setOnClickListener { selectInsertType(panel, INSERT_HIDE) }
+    }
+
+    
+
+
+
+
+    private fun selectInsertType(panel: View, type: Int) {
+        pendingInsertType = type
+        updateReplyInsertChip(type)
+        val input = panel.findViewById<View>(R.id.ll_insert_input) ?: return
+        val f1 = panel.findViewById<android.widget.EditText>(R.id.et_insert_field1)
+        val f2 = panel.findViewById<android.widget.EditText>(R.id.et_insert_field2)
+        val extra = panel.findViewById<View>(R.id.ll_insert_extra)
+        val tip = panel.findViewById<View>(R.id.tv_insert_tip)
+        val confirm = panel.findViewById<View>(R.id.btn_insert_confirm)
+        input.visibility = View.VISIBLE
+        f1?.setText("")
+        f2?.setText("")
+        panel.findViewById<android.widget.EditText>(R.id.et_insert_credit)?.setText("")
+        panel.findViewById<android.widget.EditText>(R.id.et_insert_days)?.setText("")
+
+        val singleLine = android.text.InputType.TYPE_CLASS_TEXT or
+                android.text.InputType.TYPE_TEXT_VARIATION_URI
+        val multiLine = android.text.InputType.TYPE_CLASS_TEXT or
+                android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE or
+                android.text.InputType.TYPE_TEXT_FLAG_CAP_SENTENCES
+
+        var hint1 = ""
+        var multiline = false
+        var hint2 = ""
+        var showExtra = false
+        var showTip = false
+        when (type) {
+            INSERT_LINK -> {
+                hint1 = "链接网址"
+                hint2 = "链接文字"
+            }
+            INSERT_IMAGE -> hint1 = "图片地址"
+            INSERT_AUDIO -> hint1 = "音乐文件地址"
+            INSERT_VIDEO -> hint1 = "视频地址"
+            INSERT_FLASH -> hint1 = "Flash 地址"
+            INSERT_QUOTE -> {
+                hint1 = "请输入引用内容"
+                multiline = true
+            }
+            INSERT_CODE -> {
+                hint1 = "请输入代码"
+                multiline = true
+            }
+            INSERT_FREE -> {
+                hint1 = "如果您设置了帖子收费，请输入购买前可免费浏览的内容"
+                multiline = true
+            }
+            INSERT_HIDE -> {
+                hint1 = "请输入要隐藏的信息内容"
+                multiline = true
+                showExtra = true
+                showTip = true
+            }
+        }
+
+        f1?.hint = hint1
+        f1?.inputType = if (multiline) multiLine else singleLine
+        f1?.visibility = View.VISIBLE
+        f2?.hint = hint2
+        f2?.visibility = if (hint2.isNotEmpty()) View.VISIBLE else View.GONE
+        extra?.visibility = if (showExtra) View.VISIBLE else View.GONE
+        tip?.visibility = if (showTip) View.VISIBLE else View.GONE
+        confirm?.setOnClickListener { applyInsert(panel, type, f1?.text?.toString()?.trim() ?: "", f2?.text?.toString()?.trim() ?: "") }
+    }
+
+    private fun applyInsert(panel: View, type: Int, field1: String, field2: String) {
+        if (type == INSERT_LINK && TextUtils.isEmpty(field1)) {
+            Toast.makeText(this, "请输入链接网址", Toast.LENGTH_SHORT).show()
+            return
+        }
+        if ((type == INSERT_IMAGE || type == INSERT_AUDIO || type == INSERT_VIDEO || type == INSERT_FLASH)
+            && TextUtils.isEmpty(field1)
+        ) {
+            Toast.makeText(this, "请输入地址", Toast.LENGTH_SHORT).show()
+            return
+        }
+        if ((type == INSERT_FREE || type == INSERT_HIDE) && TextUtils.isEmpty(field1)) {
+            Toast.makeText(this, "请输入内容", Toast.LENGTH_SHORT).show()
+            return
+        }
+        val text = when (type) {
+            INSERT_LINK -> {
+                val label = if (TextUtils.isEmpty(field2)) field1 else field2
+                "[url=" + field1 + "]" + label + "[/url]"
+            }
+            INSERT_IMAGE -> "[img]" + field1 + "[/img]"
+            INSERT_AUDIO -> "[audio]" + field1 + "[/audio]"
+            INSERT_VIDEO -> "[media]" + field1 + "[/media]"
+            INSERT_FLASH -> "[flash]" + field1 + "[/flash]"
+            INSERT_QUOTE -> "\n[quote]请输入引用内容[/quote]\n"
+            INSERT_CODE -> "\n[code]请输入代码[/code]\n"
+            INSERT_FREE -> "\n[free]" + field1 + "[/free]\n"
+            INSERT_HIDE -> {
+                val credit = panel.findViewById<android.widget.EditText>(R.id.et_insert_credit)?.text?.toString()?.trim() ?: ""
+                val days = panel.findViewById<android.widget.EditText>(R.id.et_insert_days)?.text?.toString()?.trim() ?: ""
+                val tag = if (credit.isEmpty() && days.isEmpty()) "[hide]" else "[hide=" + credit + "," + days + "]"
+                "\n" + tag + field1 + "[/hide]\n"
+            }
+            else -> ""
+        }
+        if (text.isNotEmpty()) insertIntoReplyDialog(text)
+        hideReplyToolPanels()
+    }
+
+    
+
+    private fun toggleReplySmileyPanel() {
+        val panel = binding.containerReplyPanel
+        val smiley = panel.findViewById<View>(R.id.ll_smiley_panel) ?: return
+        val visible = smiley.visibility == View.VISIBLE
+        hideReplyToolPanels()
+        if (visible) return
+        smiley.visibility = View.VISIBLE
+        updateReplyToolHighlight(panel.findViewById<View>(R.id.btn_smile))
+        loadReplySmileyCatalog()
+    }
+
+    private fun loadReplySmileyCatalog(force: Boolean = false) {
+        val panel = binding.containerReplyPanel
+        val rv = panel.findViewById<RecyclerView>(R.id.rv_smiley) ?: return
+        val empty = panel.findViewById<TextView>(R.id.tv_smiley_empty)
+        val tabs = panel.findViewById<LinearLayout>(R.id.ll_smiley_tabs)
+        val cached = if (force) null else replySmileyCatalog
+        if (cached != null) {
+            showSmileySet(rv, tabs, cached, replySmileySetIndex, empty)
+            return
+        }
+        if (replySmileyLoading) return
+        replySmileyLoading = true
+        empty?.visibility = View.VISIBLE
+        empty?.text = "表情加载中…"
+        empty?.setOnClickListener(null)
+        rv.visibility = View.GONE
+        tabs?.removeAllViews()
+        val tidValue = tid
+        val fidValue = postDetail?.forumFid ?: "39"
+        java.lang.Thread {
+            var catalog: MutableList<ForumParser.SmileySet> = ArrayList()
+            try {
+                if (!httpClient.isLoggedIn()) httpClient.syncFromCookieManager()
+                
+                for (url in ForumParser.getSmileyScriptUrlCandidates()) {
+                    catalog = ForumParser.parseSmileyCatalog(httpClient.get(url))
+                    if (catalog.isNotEmpty()) break
+                }
+                if (catalog.isEmpty()) {
+                    val replyUrl = HttpClient.BASE_URL + "forum.php?mod=post&action=reply&fid=" +
+                        fidValue + "&tid=" + (tidValue ?: "")
+                    val desktopHtml = httpClient.getDesktop(replyUrl)
+                    catalog = ForumParser.parseSmileyCatalog(desktopHtml)
+                    
+                    if (catalog.isEmpty()) {
+                        for (scriptUrl in ForumParser.extractSmileyScriptUrls(desktopHtml)) {
+                            catalog = ForumParser.parseSmileyCatalog(httpClient.get(scriptUrl))
+                            if (catalog.isNotEmpty()) break
+                        }
+                    }
+                }
+                if (catalog.isEmpty()) {
+                    val newThreadUrl = HttpClient.BASE_URL + "forum.php?mod=post&action=newthread&fid=" + fidValue
+                    catalog = ForumParser.parseSmileyCatalog(httpClient.getDesktop(newThreadUrl))
+                }
+                if (catalog.isEmpty()) {
+                    val mobileHtml = httpClient.get(
+                        HttpClient.BASE_URL + "forum.php?mod=post&action=reply&fid=" +
+                            fidValue + "&tid=" + (tidValue ?: "") + "&mobile=2"
+                    )
+                    catalog = ForumParser.parseSmileyCatalog(mobileHtml)
+                }
+            } catch (ignored: Exception) {
+            }
+            val finalCatalog = catalog
+            runOnUiThread {
+                replySmileyLoading = false
+                if (finalCatalog.isEmpty()) {
+                    replySmileyLoadFailed = true
+                    val e = binding.containerReplyPanel.findViewById<TextView>(R.id.tv_smiley_empty)
+                    e?.visibility = View.VISIBLE
+                    e?.text = "表情加载失败，点击重试"
+                    e?.setOnClickListener { loadReplySmileyCatalog(force = true) }
+                } else {
+                    replySmileyLoadFailed = false
+                    replySmileyCatalog = finalCatalog
+                    showSmileySet(rv, tabs, finalCatalog, 0, empty)
+                }
+            }
+        }.start()
+    }
+
+    
+    private fun showSmileyLoadFailed(rv: RecyclerView, tabs: LinearLayout?, empty: TextView?) {
+        rv.visibility = View.GONE
+        tabs?.removeAllViews()
+        empty?.visibility = View.VISIBLE
+        empty?.text = "表情加载失败，点击重试"
+        empty?.setOnClickListener { loadReplySmileyCatalog(force = true) }
+    }
+
+    private fun showSmileySet(
+        rv: RecyclerView,
+        tabs: LinearLayout?,
+        catalog: MutableList<ForumParser.SmileySet>,
+        setIndex: Int,
+        empty: TextView?
+    ) {
+        if (catalog.isEmpty()) {
+            showSmileyLoadFailed(rv, tabs, empty)
+            return
+        }
+        val idx = setIndex.coerceIn(0, catalog.size - 1)
+        replySmileySetIndex = idx
+        val items = catalog[idx].items
+        empty?.visibility = View.GONE
+        rv.visibility = View.VISIBLE
+        rv.layoutManager = GridLayoutManager(this, 6)
+        rv.adapter = object : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
+            @NonNull
+            override fun onCreateViewHolder(@NonNull parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder {
+                val size = dpToPx(40)
+                val iv = ImageView(parent.context)
+                iv.layoutParams = RecyclerView.LayoutParams(size, size)
+                iv.setPadding(dpToPx(4), dpToPx(4), dpToPx(4), dpToPx(4))
+                iv.scaleType = ImageView.ScaleType.FIT_CENTER
+                iv.isClickable = true
+                iv.setBackgroundResource(android.R.drawable.list_selector_background)
+                return object : RecyclerView.ViewHolder(iv) {}
+            }
+
+            override fun onBindViewHolder(@NonNull holder: RecyclerView.ViewHolder, position: Int) {
+                val iv = holder.itemView as ImageView
+                val smiley = items[position]
+                Glide.with(this@ThreadDetailActivity).load(smiley.url).into(iv)
+                iv.setOnClickListener { insertIntoReplyDialog(smiley.code) }
+            }
+
+            override fun getItemCount(): Int = items.size
+        }
+        tabs?.removeAllViews()
+        if (catalog.size > 1 && tabs != null) {
+            val themeColor = com.solosu.mtforum.util.ThemeManager.getThemeColor(this)
+            for (i in catalog.indices) {
+                val tv = TextView(this)
+                tv.text = if (catalog[i].name.isEmpty()) "表情" + (i + 1) else catalog[i].name
+                tv.textSize = 13f
+                tv.setPadding(dpToPx(14), dpToPx(6), dpToPx(14), dpToPx(6))
+                if (i == idx) {
+                    tv.setTextColor(themeColor)
+                    tv.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL))
+                } else {
+                    tv.setTextColor(getColor(R.color.text_secondary))
+                    tv.setTypeface(null, Typeface.NORMAL)
+                }
+                tv.isClickable = true
+                tv.isFocusable = true
+                tv.setOnClickListener { showSmileySet(rv, tabs, catalog, i, empty) }
+                tabs.addView(tv)
+            }
+        }
+    }
+
+    
+
+    private fun registerReplyFilePicker() {
+        if (replyFilePickerLauncher != null) return
+        replyFilePickerLauncher = registerForActivityResult(
+            ActivityResultContracts.OpenDocument()
+        ) { uri -> if (uri != null) uploadReplyFile(uri) }
+    }
+
+    private fun pickReplyFile() {
+        if (!httpClient.isLoggedIn()) {
+            httpClient.syncFromCookieManager()
+            if (!httpClient.isLoggedIn()) {
+                promptLogin()
+                return
+            }
+        }
+        replyFilePickerLauncher?.launch(arrayOf("*/*"))
+    }
+
+    private fun uploadReplyFile(uri: Uri) {
+        Toast.makeText(this, "正在上传附件...", Toast.LENGTH_SHORT).show()
+        java.lang.Thread {
+            try {
+                val name = buildUploadFileName(getDisplayNameFromUri(uri), contentResolver.getType(uri))
+                val temp = copyUriToTempFile(uri, name)
+                if (temp == null || !temp.exists()) {
+                    showUploadError("无法读取文件")
+                    return@Thread
+                }
+                if (!httpClient.isLoggedIn()) httpClient.syncFromCookieManager()
+                if (!httpClient.isLoggedIn()) {
+                    showUploadError("登录状态已失效，请重新登录")
+                    return@Thread
+                }
+                val detailHtml = httpClient.getDesktop(ForumParser.getThreadDetailUrl(tid))
+                var uid = extractUploadValue(detailHtml, "discuz_uid")
+                var hash = extractUploadValue(detailHtml, "hash")
+                if (!isValidUploadUid(uid)) uid = null
+                if (TextUtils.isEmpty(uid) || TextUtils.isEmpty(hash)) {
+                    val fid = extractForumFid(detailHtml) ?: "39"
+                    val postHtml = httpClient.getDesktop(
+                        HttpClient.BASE_URL + "forum.php?mod=post&action=newthread&fid=" + fid
+                    )
+                    if (TextUtils.isEmpty(uid)) uid = extractUploadValue(postHtml, "discuz_uid")
+                    if (!isValidUploadUid(uid)) uid = null
+                    if (TextUtils.isEmpty(hash)) hash = extractUploadValue(postHtml, "hash")
+                }
+                if (!isValidUploadUid(uid) || TextUtils.isEmpty(hash)) {
+                    showUploadError("获取附件上传授权失败，请重新登录后重试")
+                    return@Thread
+                }
+                logUploadAuth(uid, hash)
+                val extra = HashMap<String, String>()
+                extra["uid"] = uid!!
+                extra["hash"] = hash!!
+                val url = HttpClient.BASE_URL + "misc.php?mod=swfupload&operation=upload" +
+                    "&type=attach&inajax=yes&infloat=yes&simple=2"
+                val result = httpClient.uploadFileWithUserAgent(
+                    url, temp, "Filedata", extra, HttpClient.DESKTOP_USER_AGENT, "application/octet-stream"
+                )
+                val aid = parseUploadAid(result)
+                if (TextUtils.isEmpty(aid)) {
+                    showUploadError(extractUploadError(result))
+                    return@Thread
+                }
+                val finalAid = aid!!
+                synchronized(pendingUploadAids) {
+                    if (!pendingUploadAids.contains(finalAid)) pendingUploadAids.add(finalAid)
+                }
+                runOnUiThread {
+                    replyAttachFiles.add(ReplyAttachFile(name, finalAid))
+                    updateReplyAttachList()
+                    insertIntoReplyDialog("\n[attach]" + finalAid + "[/attach]\n")
+                    Toast.makeText(this, "附件已上传: $name", Toast.LENGTH_SHORT).show()
+                }
+            } catch (e: Exception) {
+                showUploadError("附件上传失败: " + if (TextUtils.isEmpty(e.message)) "网络异常" else e.message)
+            }
+        }.start()
+    }
+
+    private fun updateReplyAttachList() {
+        val panel = binding.containerReplyPanel
+        val list = panel.findViewById<LinearLayout>(R.id.ll_attach_list) ?: return
+        list.removeAllViews()
+        if (replyAttachFiles.isEmpty()) {
+            list.visibility = View.GONE
+            return
+        }
+        list.visibility = View.VISIBLE
+        for (af in replyAttachFiles) {
+            val row = LinearLayout(this)
+            row.orientation = LinearLayout.HORIZONTAL
+            row.gravity = Gravity.CENTER_VERTICAL
+            row.setBackgroundResource(R.drawable.bg_post_panel)
+            row.setPadding(dpToPx(10), dpToPx(8), dpToPx(10), dpToPx(8))
+            val tv = TextView(this)
+            tv.layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+            tv.text = af.name
+            tv.textSize = 12f
+            tv.setTextColor(androidx.core.content.ContextCompat.getColor(this, R.color.text_secondary))
+            tv.maxLines = 1
+            tv.ellipsize = TextUtils.TruncateAt.MIDDLE
+            row.addView(tv)
+            val del = ImageButton(this)
+            del.layoutParams = LinearLayout.LayoutParams(dpToPx(22), dpToPx(22))
+            del.setImageResource(R.drawable.ic_cross)
+            del.setBackgroundColor(0)
+            del.setColorFilter(0xFFEF4444.toInt())
+            del.setOnClickListener {
+                replyAttachFiles.remove(af)
+                synchronized(pendingUploadAids) { pendingUploadAids.remove(af.aid) }
+                mEtReplyDialog?.let { et ->
+                    val tag = "[attach]" + af.aid + "[/attach]"
+                    et.setText(et.text.toString().replace(tag, ""))
+                }
+                updateReplyAttachList()
+            }
+            row.addView(del)
+            list.addView(row)
+        }
+    }
+
+    override fun dispatchKeyEvent(event: android.view.KeyEvent): Boolean {
+        if (event.keyCode == android.view.KeyEvent.KEYCODE_BACK) {
+            if (isReplyPanelShowing()) {
+                hideReplyPanel()
+                return true
+            }
+        }
+        return super.dispatchKeyEvent(event)
+    }
+
+    private fun isReplyPanelShowing(): Boolean {
+        return binding.containerReplyPanel.visibility == View.VISIBLE
+    }
+
+    private fun hideReplyPanel() {
+        val panel = binding.containerReplyPanel
+        if (panel.visibility != View.VISIBLE) return
+
+        isOpeningReplyPanel = false
+        val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
+        mEtReplyDialog?.let { et ->
+            imm?.hideSoftInputFromWindow(et.windowToken, 0)
+            et.clearFocus() 
+        }
+        binding.root.requestFocus()
+
+        replyBackPressedCallback?.isEnabled = false
+        hideReplyToolPanels()
+
+        binding.vReplyMask.animate().cancel()
+        binding.vReplyMask.visibility = View.GONE
+
+        panel.animate().cancel()
+        panel.visibility = View.GONE
+        panel.translationY = 0f
+
+        
+        currentReplyPid = ""
+        currentReplyTarget = ""
+        
+        if (!TextUtils.isEmpty(editingReplyPid)) exitReplyEditUi()
+    }
+
+    private fun showReplyBottomSheet(prefillText: String?) {
+        if (isFinishing || isDestroyed) return
+        isOpeningReplyPanel = true
+        val etReplyDialog = mEtReplyDialog
+        val tvTarget = mTvReplyTarget
+
+        if (!TextUtils.isEmpty(prefillText)) {
+            if (prefillText!!.startsWith("回复 ") || prefillText.contains("：")) {
+                tvTarget?.text = prefillText
+                tvTarget?.visibility = View.VISIBLE
+            } else {
+                if (etReplyDialog?.text.isNullOrEmpty()) {
+                    etReplyDialog?.setText(prefillText)
+                }
+                tvTarget?.text = prefillText
+                tvTarget?.visibility = View.VISIBLE
+            }
+        } else {
+            tvTarget?.visibility = View.GONE
+        }
+        etReplyDialog?.error = null
+
+        
+        etReplyDialog?.setSelection(etReplyDialog.text?.length ?: 0)
+
+        if (!pendingImageUris.isEmpty()) {
+            updateDialogImagePreview()
+        }
+
+        
+        val panel = binding.containerReplyPanel
+        panel.visibility = View.VISIBLE
+        replyBackPressedCallback?.isEnabled = true
+
+        binding.vReplyMask.visibility = View.VISIBLE
+        binding.vReplyMask.alpha = 0f
+        binding.vReplyMask.animate().alpha(1f).setDuration(220).start()
+
+        panel.post {
+            val h = if (panel.height > 0) panel.height.toFloat() else dpToPx(350).toFloat()
+            panel.translationY = h
+            panel.animate()
+                .translationY(0f)
+                .setDuration(220)
+                .setInterpolator(android.view.animation.DecelerateInterpolator())
+                .start()
+        }
+
+        etReplyDialog?.post {
+            etReplyDialog.isFocusable = true
+            etReplyDialog.isFocusableInTouchMode = true
+            etReplyDialog.requestFocus()
+            val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
+            imm?.showSoftInput(etReplyDialog, InputMethodManager.SHOW_IMPLICIT)
+            etReplyDialog.postDelayed({ isOpeningReplyPanel = false }, 400)
+        }
+    }
+
+    
+    private fun promptLogin() {
+        if (isFinishing || isDestroyed) {
+            return
+        }
+        hideReplyPanel()
+        LoginBottomSheet.show(this, null)
+    }
+
+    private fun attemptReply(replyText: String, etReplyInput: TextInputEditText?) {
+        if (!httpClient.isLoggedIn()) {
+            httpClient.syncFromCookieManager()
+        }
+        if (!httpClient.isLoggedIn()) {
+            promptLogin()
+        } else {
+            if (TextUtils.isEmpty(replyText)) {
+                binding.tilReply.error = getString(R.string.reply_hint_empty)
+                return
+            }
+            binding.tilReply.error = null
+            val formhash = postDetail?.formhash
+            java.lang.Thread {
+                var fh = formhash
+                try {
+                    if (TextUtils.isEmpty(fh)) {
+                        val html = httpClient.get(ForumParser.getThreadDetailUrl(tid))
+                        fh = ForumParser.parseFormhash(html)
+                    }
+                    if (TextUtils.isEmpty(fh)) {
+                        showReplyFailure("获取回复验证失败，请刷新页面后重试")
+                        return@Thread
+                    }
+                    val params = HashMap<String, String>()
+                    params["formhash"] = fh!!
+                    params["message"] = replyText
+                    params["replysubmit"] = "yes"
+                    
+                    synchronized(pendingUploadAids) {
+                        for (aid in pendingUploadAids) {
+                            if (!TextUtils.isEmpty(aid)) {
+                                params["attachnew[$aid][description]"] = ""
+                            }
+                        }
+                    }
+                    if (!TextUtils.isEmpty(currentReplyPid)) {
+                        params["reppid"] = currentReplyPid
+                        params["reppost"] = currentReplyPid
+                        params["addfeed"] = "1"
+                        val quote = buildReplyQuote(currentReplyPid)
+                        if (!TextUtils.isEmpty(quote)) {
+                            params["noticetrimstr"] = quote!!
+                        }
+                        params["noticeauthormsg"] = replyText
+                    }
+                    val noticeauthor = postDetail?.noticeauthor
+                    if (!TextUtils.isEmpty(noticeauthor)) {
+                        params["noticeauthor"] = noticeauthor!!
+                    }
+                    params["posttime"] = (System.currentTimeMillis() / 1000).toString()
+                    
+                    val advPanel = binding.containerReplyPanel
+                    advPanel.findViewById<android.widget.CheckBox>(R.id.cb_reply_usesig)?.let {
+                        params["usesig"] = if (it.isChecked) "1" else "0"
+                    }
+                    advPanel.findViewById<android.widget.CheckBox>(R.id.cb_reply_smileyoff)?.let {
+                        if (it.isChecked) params["smileyoff"] = "1"
+                    }
+                    advPanel.findViewById<android.widget.CheckBox>(R.id.cb_reply_bbcodeoff)?.let {
+                        if (it.isChecked) params["bbcodeoff"] = "1"
+                    }
+                    val fid = postDetail?.forumFid ?: ""
+                    val replyUrl = "https://bbs.binmt.cc/forum.php?mod=post&action=reply&fid=" + fid +
+                            "&tid=" + tid + "&extra=&replysubmit=yes&mobile=2&handlekey=fastpost&loc=1&inajax=1"
+                    val result = httpClient.post(replyUrl, params)
+                    if (!isReplyResponseSuccessful(result) && !wasReplyPublished(replyText)) {
+                        showReplyFailure(extractReplyError(result))
+                    } else {
+                        completeReplyPublished()
+                    }
+                } catch (e: Exception) {
+                    showReplyFailure("回复失败：" + if (TextUtils.isEmpty(e.message)) "网络异常，请稍后重试" else e.message)
+                }
+            }.start()
+        }
+    }
+
+    private fun wasReplyPublished(replyText: String): Boolean {
+        try {
+            val currentUid = UserSessionManager.getInstance().getUid(applicationContext)
+            if (TextUtils.isEmpty(currentUid)) {
+                return false
+            }
+            val lastPage = postDetail?.let { maxOf(1, it.totalPages) } ?: 1
+            val expectedText = normalizeReplyText(replyText)
+            for (page in lastPage..(lastPage + 1)) {
+                val url = ForumParser.getThreadDetailUrl(tid, page, getReplyOrder()) +
+                        "&_reply_check=" + System.currentTimeMillis()
+                val latest = ForumParser.parseThreadDetail(httpClient.get(url))
+                val replies = latest.replies
+                if (replies != null) {
+                    for (k in replies.size - 1 downTo 0) {
+                        val item = replies[k]
+                        if (item != null && currentUid == item.authorUid && !TextUtils.isEmpty(expectedText)
+                            && normalizeReplyText(item.contentText).contains(expectedText)
+                        ) {
+                            return true
+                        }
+                    }
+                }
+            }
+        } catch (ignored: Exception) {
+        }
+        return false
+    }
+
+    private fun normalizeReplyText(text: String?): String {
+        if (TextUtils.isEmpty(text)) return ""
+        return Regex("(?is)\\[attach(?:img)?\\]\\d+\\[/attach(?:img)?\\]").replace(text!!, "")
+            .let { Regex("\\s+").replace(it, " ") }.trim()
+    }
+
+    private fun completeReplyPublished() {
+        runOnUiThread {
+            currentReplyPid = ""
+            currentReplyTarget = ""
+            binding.tilReply.error = null
+            
+            
+            pendingImageUris.clear()
+            uploadedAidMap.clear()
+            replyAttachFiles.clear()
+            updateReplyAttachList()
+            synchronized(pendingUploadAids) {
+                pendingUploadAids.clear()
+            }
+            synchronized(imageUploadPendingQueue) {
+                imageUploadPendingQueue.clear()
+            }
+            binding.etReply.setText("")
+            mEtReplyDialog?.setText("")
+            refreshAllImagePreviews()
+            Toast.makeText(this, R.string.reply_success, Toast.LENGTH_SHORT).show()
+            hideReplyPanel()
+            refreshPostDetail()
+        }
+    }
+
+    private fun isReplyResponseSuccessful(response: String?): Boolean {
+        if (TextUtils.isEmpty(response) || ForumParser.isLoginPage(response)) {
+            return false
+        }
+        val lower = response!!.lowercase(Locale.ROOT)
+        if (containsAny(
+                response, "请先登录", "formhash错误", "非法操作", "没有权限",
+                "回复失败", "附件上传失败", "附件不存在", "上传图片失败"
+            )
+        ) {
+            return false
+        }
+        if (lower.contains("succeedhandle_reply") || lower.contains("succeedhandle_post")
+            || lower.contains("succeedhandle_fastpost") || lower.contains("succeedhandle_fastposts")
+            || lower.contains("reply_success") || lower.contains("回复发布成功")
+            || lower.contains("发布成功")
+        ) {
+            return true
+        }
+        return Pattern.compile("[?&](?:tid|pid)=\\d+", Pattern.CASE_INSENSITIVE).matcher(response).find()
+    }
+
+    private fun extractReplyError(response: String?): String {
+        if (TextUtils.isEmpty(response)) {
+            return "回复失败,服务器未返回结果"
+        }
+        if (ForumParser.isLoginPage(response) || containsAny(response, "请先登录")) {
+            return "登录状态已失效,请重新登录"
+        }
+        if (containsAny(response, "formhash错误", "非法操作")) {
+            return "验证已失效,请刷新页面后重试"
+        }
+        if (containsAny(response, "附件上传失败", "附件不存在", "上传图片失败")) {
+            return "图片附件关联失败,请重新上传后再发送"
+        }
+        return "回复发布失败,请稍后重试"
+    }
+
+    private fun showReplyFailure(message: String) {
+        runOnUiThread { Toast.makeText(this, message, Toast.LENGTH_SHORT).show() }
+    }
+
+    private fun buildReplyQuote(pid: String?): String? {
+        if (TextUtils.isEmpty(pid)) {
+            return null
+        }
+        for (item in displayedReplies) {
+            if (item != null && pid == item.pid) {
+                val author = if (!TextUtils.isEmpty(item.author)) item.author else "匿名"
+                val time = if (!TextUtils.isEmpty(item.time)) item.time else ""
+                val content = (item.contentText ?: "")
+                    .replace("[quote]", "").replace("[/quote]", "")
+                
+                
+                
+                return "[quote][size=2][url=forum.php?mod=redirect&goto=findpost&pid=" + pid +
+                        "&ptid=" + (tid ?: "") + "][color=#999999]" + author + " 发表于 " + time +
+                        "[/color][/url][/size]" + content + "[/quote]"
+            }
+        }
+        return null
+    }
+
+    
+
+    private fun extractRecommendActionUrl(html: String?): String? {
+        if (TextUtils.isEmpty(html)) {
+            return null
+        }
+        try {
+            val doc = Jsoup.parse(html!!)
+            val link = doc.select("a.comiis_recommend_addkey, a.comiis_recommend_new").first()
+                ?: return null
+            val href = link.attr("href")
+            if (!TextUtils.isEmpty(href) && !href.startsWith("javascript:")) {
+                if (href.startsWith("/")) {
+                    return HttpClient.BASE_URL + href.substring(1)
+                }
+                if (!href.startsWith("http://") && !href.startsWith("https://")) {
+                    return HttpClient.BASE_URL + href
+                }
+                return href
+            }
+            return null
+        } catch (ignored: Exception) {
+            return null
+        }
+    }
+
+    private fun appendQuery(url: String?, query: String): String? {
+        if (TextUtils.isEmpty(url) || url!!.contains("inajax=")) {
+            return url
+        }
+        return url + (if (url.contains("?")) "&" else "?") + query
+    }
+
+    private fun containsAny(text: String?, vararg values: String?): Boolean {
+        if (TextUtils.isEmpty(text)) {
+            return false
+        }
+        for (value in values) {
+            if (!TextUtils.isEmpty(value) && text!!.contains(value!!)) {
+                return true
+            }
+        }
+        return false
+    }
+
+    private fun isLikeAddResponseSuccessful(result: String?): Boolean {
+        if (TextUtils.isEmpty(result) || ForumParser.isLoginPage(result) || containsAny(
+                result, "没有点赞权限", "不能点赞", "今日评价机会已用完",
+                "关闭的主题无法执行", "请先登录", "formhash错误", "非法操作"
+            )
+        ) {
+            return false
+        }
+        return containsAny(
+            result, "recommendv", "recommendc", "点赞成功", "推荐成功",
+            "succeedhandle_recommend", "评价成功"
+        )
+    }
+
+    private fun animateBounce(view: View) {
+        view.animate()
+            .scaleX(1.3f)
+            .scaleY(1.3f)
+            .setDuration(120)
+            .withEndAction {
+                view.animate()
+                    .scaleX(1.0f)
+                    .scaleY(1.0f)
+                    .setDuration(180)
+                    .setInterpolator(android.view.animation.OvershootInterpolator(2.5f))
+                    .start()
+            }
+            .start()
+    }
+
+    private fun updateLikeIcon() {
+        val button = binding.btnLike
+        val iconRes = if (isLiked) R.drawable.ic_like_detail else R.drawable.ic_like_outline
+        button.setImageResource(iconRes)
+        val themeColor = com.solosu.mtforum.util.ThemeManager.getThemeColor(this)
+        button.setColorFilter(if (isLiked) themeColor else getColor(R.color.icon_secondary))
+        updateCountBadge(binding.tvLikeBadge, maxOf(0, likeCount))
+        
+        if (!TextUtils.isEmpty(tid)) {
+            PostCountsCache.setLikes(tid, maxOf(0, likeCount))
+        }
+    }
+
+    private fun updateFavoriteIcon() {
+        val button = binding.btnFavorite
+        val res = if (isFavorited) R.drawable.ic_favorite_filled else R.drawable.ic_favorite_outline
+        button.setImageResource(res)
+        if (isFavorited) {
+            button.setColorFilter(0xFFF59E0B.toInt())
+        } else {
+            button.setColorFilter(getColor(R.color.icon_secondary))
+        }
+    }
+
+    private fun updateCountBadge(badge: TextView?, count: Int) {
+        if (badge == null) {
+            return
+        }
+        if (count > 0) {
+            
+            badge.text = if (count > 999) "999+" else count.toString()
+            badge.visibility = View.VISIBLE
+        } else {
+            badge.visibility = View.GONE
+        }
+    }
+
+    private fun insertAtMention() {
+        val start = maxOf(0, binding.etReply.selectionStart)
+        val text = if (binding.etReply.text == null) "" else binding.etReply.text.toString()
+        binding.etReply.setText(
+            text.substring(0, minOf(start, text.length)) + "@" + text.substring(minOf(start, text.length))
+        )
+        binding.etReply.setSelection(minOf(start, text.length) + "@".length)
+        binding.etReply.requestFocus()
+    }
+
+    private fun toggleFollow() {
+        val detail = postDetail
+        if (detail == null || TextUtils.isEmpty(detail.authorUid)) {
+            return
+        }
+        if (!FollowStateManager.isLoggedIn(this)) {
+            promptLogin()
+            return
+        }
+        val targetState = !detail.isFollowed
+        headerBinding!!.btnFollow.isEnabled = false
+        java.lang.Thread {
+            val success = FollowStateManager.syncFollow(this, detail.authorUid, targetState)
+            runOnUiThread {
+                headerBinding!!.btnFollow.isEnabled = true
+                if (!success) {
+                    Toast.makeText(this, "关注操作失败，请稍后重试", Toast.LENGTH_SHORT).show()
+                    return@runOnUiThread
+                }
+                detail.isFollowed = targetState
+                headerBinding!!.btnFollow.setText(
+                    if (targetState) R.string.action_followed else R.string.action_follow
+                )
+                val res = if (targetState) R.string.action_follow_success else R.string.action_unfollow_success
+                Toast.makeText(this, res, Toast.LENGTH_SHORT).show()
+            }
+        }.start()
+    }
+
+    private fun toggleFavorite() {
+        if (!httpClient.isLoggedIn()) {
+            promptLogin()
+            return
+        }
+        if (TextUtils.isEmpty(tid) || !binding.btnFavorite.isEnabled) {
+            return
+        }
+        val targetState = !isFavorited
+        val oldState = isFavorited
+        animateBounce(binding.btnFavorite)
+        binding.btnFavorite.isEnabled = false
+        java.lang.Thread {
+            var success = false
+            var errorMessage: String? = null
+            try {
+                httpClient.syncFromCookieManager()
+                if (targetState) {
+                    val pageHtml = httpClient.get(
+                        ForumParser.getThreadDetailUrl(tid) + "&_favorite_refresh=" + System.currentTimeMillis()
+                    )
+                    val actionUrl = extractFavoriteActionUrl(pageHtml)
+                    if (TextUtils.isEmpty(actionUrl)) {
+                        throw IllegalStateException("无法获取收藏操作地址")
+                    }
+                    val result = httpClient.get(appendQuery(actionUrl, "inajax=1")!!)
+                    if (!ForumParser.isLoginPage(result)
+                        && !containsAny(result, "请先登录", "没有权限", "非法操作", "formhash错误")
+                    ) {
+                        val favoritePostUrl = extractFavoriteFormAction(result, actionUrl)
+                        if (!TextUtils.isEmpty(favoritePostUrl)) {
+                            val formParams = extractFavoriteFormParams(result)
+                            formParams["favoritesubmit"] = "true"
+                            formParams["favoritesubmit_btn"] = "确定"
+                            if (!formParams.containsKey("description")) {
+                                formParams["description"] = "手机收藏"
+                            }
+                            val postResult = httpClient.post(favoritePostUrl!!, formParams)
+                            success = isFavoriteMutationResponseSuccessful(postResult, true)
+                        } else {
+                            success = isFavoriteMutationResponseSuccessful(result, true)
+                        }
+                    }
+                } else {
+                    success = requestRemoveFavoriteFromServer()
+                }
+                val serverState = queryServerFavoriteStateWithRetry(targetState)
+                if (serverState != null) {
+                    success = serverState == targetState
+                }
+                if (!success) {
+                    errorMessage = "网页端未确认收藏状态已更新"
+                }
+            } catch (e: Exception) {
+                errorMessage = e.message
+            }
+            val finalSuccess = success
+            val finalError = errorMessage
+            runOnUiThread {
+                binding.btnFavorite.isEnabled = true
+                if (finalSuccess) {
+                    isFavorited = targetState
+                    saveFavoritedState(targetState)
+                    postDetail?.let {
+                        it.isFavorited = targetState
+                        it.favoritedStateKnown = true
+                    }
+                    updateFavoriteIcon()
+                    favoriteCount = maxOf(0, favoriteCount + (if (targetState) 1 else -1))
+                    updateCountBadge(binding.tvFavoriteBadge, favoriteCount)
+                    Toast.makeText(this, if (targetState) "已收藏" else "已取消收藏", Toast.LENGTH_SHORT).show()
+                    return@runOnUiThread
+                }
+                isFavorited = oldState
+                updateFavoriteIcon()
+                Toast.makeText(
+                    this,
+                    if (TextUtils.isEmpty(finalError)) "收藏操作失败，请稍后重试" else finalError!!,
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
+        }.start()
+    }
+
+    private fun extractFavoriteActionUrl(html: String?): String? {
+        if (TextUtils.isEmpty(html)) {
+            return null
+        }
+        try {
+            val doc = Jsoup.parse(html!!)
+            val link = doc.select("#comiis_favorite_a").first() ?: return null
+            val href = link.attr("href")
+            if (!TextUtils.isEmpty(href) && !href.startsWith("javascript:")) {
+                if (href.startsWith("/")) {
+                    return HttpClient.BASE_URL + href.substring(1)
+                }
+                if (!href.startsWith("http://") && !href.startsWith("https://")) {
+                    return HttpClient.BASE_URL + href
+                }
+                return href
+            }
+            return null
+        } catch (ignored: Exception) {
+            return null
+        }
+    }
+
+    private fun extractFavoriteFormAction(response: String?, fallbackUrl: String?): String? {
+        if (TextUtils.isEmpty(response)) {
+            return null
+        }
+        try {
+            val html = extractCdata(response)
+            val doc = Jsoup.parse(html)
+            val form = doc.select("form[id^=favoriteform], form[name^=favoriteform]").first()
+                ?: return null
+            var action: String? = form.attr("action")
+            if (TextUtils.isEmpty(action)) {
+                action = fallbackUrl
+            }
+            return normalizeForumUrl(action)
+        } catch (ignored: Exception) {
+            return null
+        }
+    }
+
+    private fun extractFavoriteFormParams(response: String?): MutableMap<String, String> {
+        val params = HashMap<String, String>()
+        if (TextUtils.isEmpty(response)) {
+            return params
+        }
+        try {
+            val doc = Jsoup.parse(extractCdata(response))
+            val form = doc.select("form[id^=favoriteform], form[name^=favoriteform]").first()
+                ?: return params
+            for (input in form.select("input[name], textarea[name], select[name]")) {
+                val name = input.attr(ChatActivity.EXTRA_NAME)
+                if (!TextUtils.isEmpty(name)) {
+                    val value = if (input.tagName().equals("textarea", ignoreCase = true)) input.text()
+                    else input.attr("value")
+                    params[name] = value
+                }
+            }
+        } catch (ignored: Exception) {
+        }
+        return params
+    }
+
+    private fun extractCdata(response: String?): String {
+        if (TextUtils.isEmpty(response)) {
+            return ""
+        }
+        var start = response!!.indexOf("<![CDATA[")
+        if (start < 0) {
+            start = response.indexOf("<![cdata[")
+        }
+        if (start < 0) {
+            return response
+        }
+        val contentStart = start + 9
+        val end = response.indexOf("]]>", contentStart)
+        return if (end >= 0) response.substring(contentStart, end) else response.substring(contentStart)
+    }
+
+    private fun normalizeForumUrl(url: String?): String? {
+        if (TextUtils.isEmpty(url) || url!!.startsWith("http://") || url.startsWith("https://")) {
+            return url
+        }
+        return if (url.startsWith("/")) HttpClient.BASE_URL + url.substring(1) else HttpClient.BASE_URL + url
+    }
+
+    private fun isFavoriteMutationResponseSuccessful(response: String?, targetState: Boolean): Boolean {
+        if (TextUtils.isEmpty(response) || ForumParser.isLoginPage(response)
+            || containsAny(
+                response, "请先登录", "没有权限", "非法操作", "formhash错误",
+                "收藏失败", "取消收藏失败"
+            )
+        ) {
+            return false
+        }
+        if (targetState) {
+            return containsAny(
+                response, "succeedhandle_favorite_add", "succeedhandle_favorite_thread",
+                "收藏成功", "信息收藏成功", "已收藏", "重复收藏"
+            )
+        }
+        return containsAny(
+            response, "succeedhandle_favorite_del", "succeedhandle_favorite_thread",
+            "取消收藏成功", "已取消收藏", "删除成功", "取消成功"
+        )
+    }
+
+    @Throws(Exception::class)
+    private fun requestRemoveFavoriteFromServer(): Boolean {
+        val page = httpClient.get(
+            "https://bbs.binmt.cc/home.php?mod=space&do=favorite&type=all&mobile=2&_favorite_remove=" +
+                    System.currentTimeMillis()
+        )
+        if (ForumParser.isLoginPage(page)) {
+            return false
+        }
+        var favid = ""
+        val favorites = ForumParser.parseFavoriteList(page)
+        if (favorites != null) {
+            for (item in favorites) {
+                if (item != null && tid == item.tid) {
+                    favid = item.favid ?: ""
+                    break
+                }
+            }
+        }
+        if (TextUtils.isEmpty(favid)) {
+            val matcher = Pattern.compile(
+                "(?:favid|fav_id)=(\\d+)[^<>]{0,300}(?:tid=" + Pattern.quote(tid) +
+                        "|thread-" + Pattern.quote(tid) + "-)",
+                Pattern.CASE_INSENSITIVE or Pattern.MULTILINE
+            ).matcher(page)
+            if (matcher.find()) {
+                favid = matcher.group(1)
+            }
+            if (TextUtils.isEmpty(favid)) {
+                val matcher2 = Pattern.compile(
+                    "(?:tid=" + Pattern.quote(tid) + "|thread-" + Pattern.quote(tid) +
+                            "-)[^<>]{0,300}(?:favid|fav_id)=(\\d+)",
+                    Pattern.CASE_INSENSITIVE or Pattern.MULTILINE
+                ).matcher(page)
+                if (matcher2.find()) {
+                    favid = matcher2.group(1)
+                }
+            }
+        }
+        if (TextUtils.isEmpty(favid)) {
+            return false
+        }
+        var formhash = ForumParser.parseFormhash(page)
+        if (TextUtils.isEmpty(formhash)) {
+            val detailHtml = httpClient.get(
+                ForumParser.getThreadDetailUrl(tid) + "&_favorite_remove_hash=" + System.currentTimeMillis()
+            )
+            formhash = ForumParser.parseFormhash(detailHtml)
+        }
+        val deleteUrl = "https://bbs.binmt.cc/home.php?mod=spacecp&ac=favorite&op=delete&favid=" +
+                favid + "&type=all&mobile=2"
+        val params = HashMap<String, String>()
+        params["referer"] = "https://bbs.binmt.cc/home.php?mod=space&do=favorite&type=all&mobile=2"
+        params["deletesubmit"] = "true"
+        if (!TextUtils.isEmpty(formhash)) {
+            params["formhash"] = formhash!!
+        }
+        params["handlekey"] = "comiis"
+        val response = httpClient.post(deleteUrl, params)
+        val verifyHtml = httpClient.get(
+            "https://bbs.binmt.cc/home.php?mod=space&do=favorite&type=all&mobile=2&_favorite_remove_verify=" +
+                    System.currentTimeMillis()
+        )
+        val stillExists = containsFavoriteTid(verifyHtml, tid)
+        return !stillExists || containsAny(
+            response, "succeedhandle_favorite_del", "删除成功", "取消收藏成功", "取消成功"
+        )
+    }
+
+    private fun containsFavoriteTid(html: String?, targetTid: String?): Boolean {
+        if (TextUtils.isEmpty(html) || TextUtils.isEmpty(targetTid)) {
+            return false
+        }
+        val favorites = ForumParser.parseFavoriteList(html)
+        if (favorites != null) {
+            for (item in favorites) {
+                if (item != null && targetTid == item.tid) {
+                    return true
+                }
+            }
+        }
+        return Pattern.compile(
+            "(?:[?&]tid=" + Pattern.quote(targetTid) + "(?:&|\\\"|')|thread-" +
+                    Pattern.quote(targetTid) + "(?:-|\\.))",
+            Pattern.CASE_INSENSITIVE
+        ).matcher(html!!).find()
+    }
+
+    private fun queryServerFavoriteStateWithRetry(targetState: Boolean): Boolean? {
+        var lastState: Boolean? = null
+        val delays = longArrayOf(0, 250, 600, 1200, 2000)
+        for (delay in delays) {
+            if (delay > 0) {
+                try {
+                    java.lang.Thread.sleep(delay)
+                } catch (e: InterruptedException) {
+                    java.lang.Thread.currentThread().interrupt()
+                }
+            }
+            val detailState = queryServerFavoriteDetailState()
+            if (detailState != null) {
+                lastState = detailState
+                if (detailState == targetState) {
+                    return detailState
+                }
+            }
+            val listState = queryServerFavoriteListState()
+            if (listState != null) {
+                lastState = listState
+                if (listState == targetState) {
+                    return listState
+                }
+            }
+        }
+        return lastState
+    }
+
+    private fun queryServerFavoriteDetailState(): Boolean? {
+        try {
+            val html = httpClient.get(
+                ForumParser.getThreadDetailUrl(tid) + "&_favorite_verify=" + System.currentTimeMillis()
+            )
+            if (!ForumParser.isLoginPage(html)) {
+                val server = ForumParser.parseThreadDetail(html)
+                if (server.favoritedStateKnown) {
+                    return server.isFavorited
+                }
+            }
+        } catch (ignored: Exception) {
+        }
+        return null
+    }
+
+    private fun queryServerFavoriteListState(): Boolean? {
+        try {
+            val html = httpClient.get(
+                "https://bbs.binmt.cc/home.php?mod=space&do=favorite&type=all&mobile=2&_favorite_verify=" +
+                        System.currentTimeMillis()
+            )
+            if (ForumParser.isLoginPage(html)) {
+                return null
+            }
+            val favorites = ForumParser.parseFavoriteList(html)
+            if (favorites != null) {
+                for (item in favorites) {
+                    if (item != null && tid == item.tid) {
+                        return true
+                    }
+                }
+            }
+            if (TextUtils.isEmpty(tid)
+                || !Pattern.compile(
+                    "thread-" + Pattern.quote(tid) + "(?:-|\\.)", Pattern.CASE_INSENSITIVE
+                ).matcher(html).find()
+            ) {
+                return false
+            }
+            return true
+        } catch (ignored: Exception) {
+            return null
+        }
+    }
+
+    private fun toggleLike() {
+        if (!httpClient.isLoggedIn()) {
+            promptLogin()
+            return
+        }
+        if (TextUtils.isEmpty(tid) || !binding.btnLike.isEnabled) {
+            return
+        }
+        val currentUid = UserSessionManager.getInstance().getUid(applicationContext)
+        val authorUid = postDetail?.authorUid
+        if (!TextUtils.isEmpty(currentUid) && !TextUtils.isEmpty(authorUid) && currentUid == authorUid) {
+            Toast.makeText(this, "不能点赞自己的帖子", Toast.LENGTH_SHORT).show()
+            return
+        }
+        val targetState = !isLiked
+        val oldState = isLiked
+        val oldCount = likeCount
+        isLiked = targetState
+        likeCount = maxOf(0, likeCount + (if (targetState) 1 else -1))
+        animateBounce(binding.btnLike)
+        updateLikeIcon()
+        binding.btnLike.isEnabled = false
+        java.lang.Thread {
+            var success = false
+            var errorMessage: String? = null
+            try {
+                httpClient.syncFromCookieManager()
+                val pageHtml = httpClient.getDesktop(
+                    ForumParser.getThreadDetailUrl(tid) + "&_action_refresh=" + System.currentTimeMillis()
+                )
+                var formhash = postDetail?.formhash
+                if (TextUtils.isEmpty(formhash)) {
+                    formhash = ForumParser.parseFormhash(pageHtml)
+                }
+                var recommendUrl = extractRecommendActionUrl(pageHtml)
+                if (TextUtils.isEmpty(recommendUrl)) {
+                    if (!TextUtils.isEmpty(formhash)) {
+                        recommendUrl = "https://bbs.binmt.cc/forum.php?mod=misc&action=recommend" +
+                                "&handlekey=recommend_add&do=add&tid=" + tid + "&hash=" + formhash
+                    } else {
+                        throw IllegalStateException("无法获取formhash")
+                    }
+                }
+                val result = httpClient.get(appendQuery(recommendUrl, "inajax=1")!!)
+                if (!targetState) {
+                    val alreadyLiked = containsAny(
+                        result, "您已评价过本主题", "您已经评价过本主题", "已经评价过本主题"
+                    )
+                    if (alreadyLiked || isLikeAddResponseSuccessful(result)) {
+                        val cancelUrl = "https://bbs.binmt.cc/plugin.php?id=comiis_app&comiis=re_recommend&tid=" +
+                                tid + "&inajax=1"
+                        val cancelResult = httpClient.get(cancelUrl)
+                        success = !(ForumParser.isLoginPage(cancelResult)
+                                || containsAny(cancelResult, "没有权限", "操作失败", "非法操作", "请先登录"))
+                    }
+                } else {
+                    success = isLikeAddResponseSuccessful(result)
+                }
+                val serverState = queryServerLikeState()
+                if (serverState != null) {
+                    success = serverState == targetState
+                }
+                if (!success) {
+                    errorMessage = "网页端未确认点赞状态已更新"
+                }
+            } catch (e: Exception) {
+                errorMessage = e.message
+            }
+            val finalSuccess = success
+            val finalError = errorMessage
+            runOnUiThread {
+                binding.btnLike.isEnabled = true
+                if (finalSuccess) {
+                    saveLikedState(targetState)
+                    postDetail?.let {
+                        it.isLiked = targetState
+                        it.likedStateKnown = true
+                    }
+                    Toast.makeText(this, if (targetState) "已点赞" else "已取消点赞", Toast.LENGTH_SHORT).show()
+                    return@runOnUiThread
+                }
+                isLiked = oldState
+                likeCount = oldCount
+                updateLikeIcon()
+                Toast.makeText(
+                    this,
+                    if (TextUtils.isEmpty(finalError)) "点赞操作失败，请稍后重试" else finalError!!,
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
+        }.start()
+    }
+
+    private fun queryServerLikeState(): Boolean? {
+        try {
+            val html = httpClient.get(
+                ForumParser.getThreadDetailUrl(tid) + "&_action_refresh=" + System.currentTimeMillis()
+            )
+            val server = ForumParser.parseThreadDetail(html)
+            if (!server.likedStateKnown) {
+                return null
+            }
+            return server.isLiked
+        } catch (ignored: Exception) {
+            return null
+        }
+    }
+
+    
+
+    private fun replaceHiddenQuoteWithPlaceholder(html: String?): Array<String> {
+        if (html == null) {
+            return arrayOf("", "")
+        }
+        val openP = Pattern.compile("<div\\s+class=\"(?:comiis_quote|locked)[^\"]*\"", Pattern.CASE_INSENSITIVE)
+        val m = openP.matcher(html)
+        if (!m.find()) {
+            return arrayOf(html, "")
+        }
+        val openQuote = m.start()
+        var depth = 0
+        var i = openQuote
+        var end = html.length
+        while (true) {
+            if (i >= html.length) break
+            val lt = html.indexOf(60.toChar(), i)
+            if (lt < 0) break
+            val gt = html.indexOf(62.toChar(), lt)
+            if (gt < 0) break
+            val tag = html.substring(lt + 1, gt).trim().lowercase()
+            if (tag.startsWith("/")) {
+                if (tag.startsWith("/div") && depth - 1 <= 0) {
+                    end = gt + 1
+                    break
+                }
+            } else if (tag.startsWith("div")) {
+                depth++
+            }
+            i = gt + 1
+        }
+        if (end >= html.length) {
+            return arrayOf(html, "")
+        }
+        val block = html.substring(openQuote, end)
+        var text = Regex("<[^>]+>").replace(block, " ")
+        text = Regex("&nbsp;").replace(text, " ")
+        text = Regex("\\s+").replace(text, " ").trim()
+        if (text.isEmpty()) {
+            return arrayOf(html, "")
+        }
+        
+        if (text.length > 28) {
+            text = text.substring(0, 28) + "..."
+        }
+        val clean = html.substring(0, openQuote) + HIDDEN_QUOTE_PLACEHOLDER + html.substring(end)
+        return arrayOf(clean, text)
+    }
+
+    private fun applyHiddenNoticeHighlight(text: CharSequence?, notice: String?) {
+        if (text is Spannable && !TextUtils.isEmpty(notice)) {
+            val idx = text.toString().indexOf(HIDDEN_QUOTE_PLACEHOLDER)
+            if (idx < 0) {
+                return
+            }
+            text.setSpan(
+                HiddenNoticeSpan(
+                    notice!!, dpToPx(9).toFloat(), dpToPx(12).toFloat(),
+                    dpToPx(11).toFloat(), -854017, -14721112
+                ),
+                idx, HIDDEN_QUOTE_PLACEHOLDER.length + idx, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE or 0x11
+            )
+        }
+    }
+
+    private class HiddenNoticeSpan(
+        private val text: String,
+        private val radiusPx: Float,
+        private val paddingPx: Float,
+        private val textSizePx: Float,
+        private val bgColor: Int,
+        private val textColor: Int
+    ) : ReplacementSpan() {
+
+        override fun getSize(
+            paint: Paint, text: CharSequence?, start: Int, end: Int, fm: Paint.FontMetricsInt?
+        ): Int {
+            paint.setTextSize(textSizePx)
+            val w = paint.measureText(this.text)
+            if (fm != null) {
+                val fmi = paint.fontMetricsInt
+                fm.ascent = fmi.ascent
+                fm.descent = fmi.descent
+                fm.top = fmi.top
+                fm.bottom = fmi.bottom
+            }
+            return Math.round(paddingPx * 2.0f + w)
+        }
+
+        override fun draw(
+            canvas: Canvas, text: CharSequence?, start: Int, end: Int,
+            x: Float, top: Int, y: Int, bottom: Int, paint: Paint
+        ) {
+            paint.isAntiAlias = true
+            val oldColor = paint.color
+            paint.setTextSize(textSizePx)
+            val fmi = paint.fontMetricsInt
+            val textW = paint.measureText(this.text)
+            val left = x + 1.0f
+            val right = (x + textW + paddingPx * 2.0f) - 1.0f
+            val rectTop = top + 3.0f
+            val rectBottom = bottom - 3.0f
+            val bg = Paint(1)
+            bg.color = bgColor
+            canvas.drawRoundRect(RectF(left, rectTop, right, rectBottom), radiusPx, radiusPx, bg)
+            paint.color = textColor
+            val baseline = ((top + bottom) - fmi.ascent - fmi.descent) / 2.0f
+            canvas.drawText(this.text, paddingPx + left, baseline, paint)
+            paint.color = oldColor
+        }
+    }
+
+    private fun stripLeadingHtmlBreak(html: String?): String {
+        if (html.isNullOrEmpty()) return ""
+        var s = html.trim()
+        val leadPattern = Pattern.compile(
+            "^(?:\\s|&nbsp;|<br\\s*/?>|<p>(?:\\s|&nbsp;|<br\\s*/?>)*</p>|<div>(?:\\s|&nbsp;|<br\\s*/?>)*</div>)+",
+            Pattern.CASE_INSENSITIVE
+        )
+        while (true) {
+            val m = leadPattern.matcher(s)
+            if (m.find()) {
+                s = s.substring(m.end()).trim()
+            } else {
+                break
+            }
+        }
+        return s
+    }
+
+    private fun splitEditFooter(html: String?): Array<String> {
+        if (html.isNullOrEmpty()) {
+            return arrayOf("", "")
+        }
+        val pattern = Pattern.compile("(?is)(?:<(?:i|span|font|div|p|em)\\b[^>]*>|\\s)*本[帖贴]最后由[\\s\\S]*?编辑(?:\\s*</(?:i|span|font|div|p|em)>)*")
+        val matcher = pattern.matcher(html)
+        if (matcher.find()) {
+            val matched = matcher.group(0) ?: ""
+            var pureText = Regex("<[^>]+>").replace(matched, "")
+            pureText = Regex("&nbsp;").replace(pureText, " ").trim()
+            val clean = stripLeadingHtmlBreak(matcher.replaceFirst(""))
+            return arrayOf(clean, pureText)
+        }
+        return arrayOf(stripLeadingHtmlBreak(html), "")
+    }
+
+    private fun renderHiddenContent(hiddenHtml: String?) {
+        if (TextUtils.isEmpty(hiddenHtml)) {
+            return
+        }
+        val hb = headerBinding ?: return
+        hb.tvHiddenContent.visibility = View.VISIBLE
+        
+        val highlighted = hiddenHtml!!.replace(
+            Regex("(?i)(本帖隐藏的内容[:：]?)"),
+            "<font color=\"#F59E0B\"><b>$1</b></font><br>"
+        )
+        val bbcodeConverted = BBCodeUtil.convertBBCodeToHtml(highlighted)
+        val hiddenImageUrls = ArrayList<String>()
+        val cleanHiddenHtml = extractAndSeparateImages(bbcodeConverted, hiddenImageUrls)
+        for (u in hiddenImageUrls) {
+            if (!currentImageList.contains(u)) {
+                currentImageList.add(u)
+            }
+        }
+        hb.tvHiddenContent.text = safeFromHtml(
+            cleanHiddenHtml,
+            createInlineImageGetter(hb.tvHiddenContent),
+            BBCodeUtil.createTagHandler(this)
+        )
+        setupClickableLinks(hb.tvHiddenContent)
+    }
+
+    private fun viewHiddenContent() {
+        val detail = postDetail
+        if (detail == null || !detail.hasHiddenContent) {
+            return
+        }
+        if (!httpClient.isLoggedIn()) {
+            promptLogin()
+            return
+        }
+        
+        if (TextUtils.isEmpty(detail.hiddenContentHtml) || isHiddenContentLocked(detail.hiddenContentHtml)) {
+            showReplyBottomSheet(currentReplyTarget)
+            return
+        }
+        headerBinding?.layoutHiddenLockedRow?.visibility = View.GONE
+        renderHiddenContent(detail.hiddenContentHtml)
+    }
+
+    
+    private fun isHiddenContentLocked(hiddenHtml: String?): Boolean {
+        if (TextUtils.isEmpty(hiddenHtml)) return true
+        val t = hiddenHtml!!.replace(Regex("<[^>]+>"), " ")
+        return t.contains("如果您要查看") || t.contains("隐藏内容请")
+                || t.contains("查看本帖隐藏内容请")
+                || t.contains("请回复")
+                || t.contains("回复可见") || t.contains("需要回复")
+    }
+
+    
+
+
+
+
+
+
+
+    
+
+
+
+    private fun refreshRepliesFromDetail(detail: PostDetail?) {
+        if (detail == null) return
+        val src = detail.replies ?: return
+        val bl = BlacklistManager.uidSet(this)
+        val filtered = ArrayList<ReplyItem>(src.size)
+        for (r in src) {
+            if (r == null) continue
+            if (!bl.isEmpty() && r.authorUid != null && bl.contains(r.authorUid)) continue
+            filtered.add(r)
+        }
+        displayedReplies = filtered
+        updateReplyFilterAndOrder()
+    }
+
+    private fun fetchRepliesUpTo(detail: PostDetail, targetCount: Int) {
+        var curTotalPages = detail.totalPages
+        var nextPage = detail.currentPage + 1
+        var guard = 0
+        while ((detail.replies?.size ?: 0) < targetCount && nextPage <= curTotalPages) {
+            if (++guard > MAX_PREFETCH_PAGES) break
+            var added = 0
+            try {
+                val nextUrl = ForumParser.getThreadDetailUrl(tid, nextPage, getReplyOrder())
+                val nextHtml = httpClient.get(nextUrl)
+                if (!TextUtils.isEmpty(nextHtml)) {
+                    val nextPageDetail = ForumParser.parseThreadDetail(nextHtml)
+                    val nextReplies = nextPageDetail.replies
+                    if (!nextReplies.isNullOrEmpty()) {
+                        val currentReplies = detail.replies ?: ArrayList()
+                        currentReplies.addAll(nextReplies)
+                        detail.replies = currentReplies
+                        added = nextReplies.size
+                    }
+                    detail.currentPage = maxOf(detail.currentPage, nextPageDetail.currentPage, nextPage)
+                    if (nextPageDetail.totalPages > curTotalPages) {
+                        curTotalPages = nextPageDetail.totalPages
+                        detail.totalPages = curTotalPages
+                    }
+                } else {
+                    detail.currentPage = maxOf(detail.currentPage, nextPage)
+                }
+            } catch (_: Exception) {
+                break
+            }
+            
+            if (added == 0) break
+            nextPage++
+        }
+    }
+
+    private fun maybeAutoLoadMore() {
+        if (isFinishing || isDestroyed) return
+        if (isLoadingMore) return
+        val detail = postDetail ?: return
+        val adapter = replyAdapter ?: return
+        
+        if (adapter.footerState == ReplyAdapter.FooterState.RETRY) return
+        if (detail.currentPage >= detail.totalPages) {
+            adapter.setFooterState(ReplyAdapter.FooterState.END)
+            return
+        }
+
+        val lm = binding.recyclerReplies.layoutManager as? LinearLayoutManager ?: return
+        val lastVisible = lm.findLastVisibleItemPosition()
+        if (lastVisible == RecyclerView.NO_POSITION) return
+        val total = adapter.itemCount
+        if (total <= 0) return
+        if (lastVisible >= total - AUTO_LOAD_THRESHOLD) {
+            loadMoreReplies()
+        } else {
+            
+            adapter.setFooterState(null)
+        }
+    }
+
+    private fun loadMoreReplies() {
+        if (postDetail == null || isLoadingMore) {
+            return
+        }
+        val curDetail = postDetail!!
+        val adapter = replyAdapter
+        if (curDetail.currentPage >= curDetail.totalPages) {
+            adapter?.setFooterState(ReplyAdapter.FooterState.END)
+            return
+        }
+        isLoadingMore = true
+        adapter?.setFooterState(ReplyAdapter.FooterState.LOADING)
+        java.lang.Thread {
+            var failedMessage: String? = null
+            val allNewReplies = ArrayList<ReplyItem>()
+            var pagesFetched = 0
+            try {
+                var totalPages = curDetail.totalPages
+                var page = curDetail.currentPage + 1
+                
+                
+                
+                while (page <= totalPages && pagesFetched < LOAD_PAGE_BATCH &&
+                    allNewReplies.size < REPLIES_PER_PAGE
+                ) {
+                    pagesFetched++
+                    val pageUrl = ForumParser.getThreadDetailUrl(tid, page, getReplyOrder())
+                    val html = httpClient.get(pageUrl)
+                    if (!TextUtils.isEmpty(html)) {
+                        val pageDetail = ForumParser.parseThreadDetail(html)
+                        val pageReplies = pageDetail.replies
+                        if (!pageReplies.isNullOrEmpty()) {
+                            allNewReplies.addAll(pageReplies)
+                        }
+                        curDetail.currentPage = maxOf(curDetail.currentPage, pageDetail.currentPage, page)
+                        if (pageDetail.totalPages > totalPages) {
+                            totalPages = pageDetail.totalPages
+                            curDetail.totalPages = totalPages
+                        }
+                    } else {
+                        curDetail.currentPage = maxOf(curDetail.currentPage, page)
+                    }
+                    page++
+                }
+            } catch (e: Exception) {
+                failedMessage = e.message ?: "网络异常"
+            }
+            val err = failedMessage
+            val fetched = allNewReplies
+            runOnUiThread {
+                if (isFinishing || isDestroyed) return@runOnUiThread
+                isLoadingMore = false
+                if (err != null) {
+                    adapter?.setFooterState(ReplyAdapter.FooterState.RETRY)
+                    Toast.makeText(this, "加载失败: $err", Toast.LENGTH_SHORT).show()
+                    return@runOnUiThread
+                }
+                if (fetched.isNotEmpty()) {
+                    val bl = BlacklistManager.uidSet(this)
+                    if (!bl.isEmpty()) {
+                        val itr = fetched.iterator()
+                        while (itr.hasNext()) {
+                            val r = itr.next()
+                            if (r != null && r.authorUid != null && bl.contains(r.authorUid)) itr.remove()
+                        }
+                    }
+                    val merged = ArrayList<ReplyItem>(curDetail.replies ?: ArrayList())
+                    merged.addAll(fetched)
+                    curDetail.replies = merged
+                    displayedReplies = ArrayList(merged)
+                    updateReplyFilterAndOrder()
+                }
+                
+                if (curDetail.currentPage >= curDetail.totalPages) {
+                    adapter?.setFooterState(ReplyAdapter.FooterState.END)
+                } else if (fetched.isEmpty()) {
+                    
+                    adapter?.setFooterState(ReplyAdapter.FooterState.RETRY)
+                } else {
+                    binding.recyclerReplies.post { maybeAutoLoadMore() }
+                }
+            }
+        }.start()
+    }
+
+    
+
+    private fun restoreLikedState(): Boolean {
+        if (TextUtils.isEmpty(tid)) {
+            return false
+        }
+        return getSharedPreferences(PREF_LIKE_FAV, 0).getBoolean(KEY_LIKED_PREFIX + tid, false)
+    }
+
+    private fun saveLikedState(liked: Boolean) {
+        if (TextUtils.isEmpty(tid)) {
+            return
+        }
+        getSharedPreferences(PREF_LIKE_FAV, 0).edit().putBoolean(KEY_LIKED_PREFIX + tid, liked).apply()
+    }
+
+    private fun restoreFavoritedState(): Boolean {
+        if (TextUtils.isEmpty(tid)) {
+            return false
+        }
+        return getSharedPreferences(PREF_LIKE_FAV, 0).getBoolean(KEY_FAVORITED_PREFIX + tid, false)
+    }
+
+    private fun saveFavoritedState(favorited: Boolean) {
+        if (TextUtils.isEmpty(tid)) {
+            return
+        }
+        getSharedPreferences(PREF_LIKE_FAV, 0).edit().putBoolean(KEY_FAVORITED_PREFIX + tid, favorited).apply()
+    }
+
+    private fun applyServerActionState(detail: PostDetail?) {
+        if (detail == null) {
+            return
+        }
+        if (detail.likedStateKnown) {
+            isLiked = detail.isLiked
+            saveLikedState(isLiked)
+        } else {
+            isLiked = restoreLikedState()
+        }
+        if (detail.favoritedStateKnown) {
+            isFavorited = detail.isFavorited
+            saveFavoritedState(isFavorited)
+        } else {
+            isFavorited = restoreFavoritedState()
+        }
+    }
+
+    private fun syncFavoriteStateFromServer(detail: PostDetail?) {
+        if (detail == null || TextUtils.isEmpty(tid) || !httpClient.isLoggedIn()) {
+            return
+        }
+        
+        if (detail.favoritedStateKnown) {
+            return
+        }
+        try {
+            val html = httpClient.get(
+                "https://bbs.binmt.cc/home.php?mod=space&do=favorite&mobile=2&_refresh=" +
+                        System.currentTimeMillis()
+            )
+            if (ForumParser.isLoginPage(html)) {
+                return
+            }
+            val favorites = ForumParser.parseFavoriteList(html)
+            var found = false
+            if (favorites != null) {
+                for (item in favorites) {
+                    if (item != null && tid == item.tid) {
+                        found = true
+                        break
+                    }
+                }
+            }
+            detail.isFavorited = found
+            detail.favoritedStateKnown = true
+        } catch (ignored: Exception) {
+        }
+    }
+
+    private fun refreshServerActionState(detail: PostDetail?) {
+        if (detail == null) {
+            return
+        }
+        applyServerActionState(detail)
+        syncFavoriteStateFromServer(detail)
+        applyServerActionState(detail)
+    }
+
+    
+
+    
+
+
+
+
+
+
+
+
+    private fun showLikeUsersSheet() {
+        val detail = postDetail
+        if (detail == null) {
+            Toast.makeText(this, "暂无点赞数据", Toast.LENGTH_SHORT).show()
+            return
+        }
+        val uidList = detail.likeUserUids
+        if (uidList == null || uidList.isEmpty()) {
+            Toast.makeText(this, "暂无点赞数据", Toast.LENGTH_SHORT).show()
+            return
+        }
+        val avatars = detail.likeUserAvatars ?: ArrayList<String>()
+        val names = detail.likeUserNames ?: ArrayList<String>()
+
+        
+        val card = MaterialCardView(this)
+        card.setCardBackgroundColor(getColor(R.color.surface))
+        card.strokeColor = getColor(R.color.divider)
+        card.strokeWidth = dpToPx(1)
+        card.cardElevation = 2f * dpToPx(1)
+        card.shapeAppearanceModel = ShapeAppearanceModel.builder()
+            .setTopLeftCorner(CornerFamily.ROUNDED, dpToPx(16).toFloat())
+            .setTopRightCorner(CornerFamily.ROUNDED, dpToPx(16).toFloat())
+            .setBottomLeftCorner(CornerFamily.ROUNDED, 0f)
+            .setBottomRightCorner(CornerFamily.ROUNDED, 0f)
+            .build()
+
+        val root = LinearLayout(this)
+        root.orientation = LinearLayout.VERTICAL
+        val pad = dpToPx(16)
+        root.setPadding(pad, pad, pad, pad)
+
+        val title = TextView(this)
+        title.text = "赞过此帖的人 (${uidList.size})"
+        title.textSize = 16f
+        title.typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+        title.setTextColor(getColor(R.color.text_primary))
+        title.setPadding(0, 0, 0, dpToPx(12))
+        root.addView(title)
+
+        val list = LinearLayout(this)
+        list.orientation = LinearLayout.VERTICAL
+        val scroll = ScrollView(this)
+        scroll.addView(list)
+        root.addView(scroll, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f))
+        card.addView(root, android.view.ViewGroup.LayoutParams(
+            android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+            android.view.ViewGroup.LayoutParams.WRAP_CONTENT))
+
+        val sheet = BottomSheetDialog(this)
+
+        val nameViews = ArrayList<TextView>()
+        val imgViews = ArrayList<ShapeableImageView>()
+        val rowViews = ArrayList<LinearLayout>()
+        for (i in uidList.indices) {
+            val uid = uidList[i]
+            val name = if (i < names.size && names[i] != null && !names[i]!!.isEmpty())
+                names[i]!! else "用户$uid"
+            val avatar = if (i < avatars.size) avatars[i] else null
+            val row = LinearLayout(this)
+            row.orientation = LinearLayout.HORIZONTAL
+            row.gravity = Gravity.CENTER_VERTICAL
+            row.setPadding(dpToPx(4), dpToPx(6), dpToPx(4), dpToPx(6))
+            val iv = ShapeableImageView(this)
+            val av = dpToPx(36)
+            val ivLp = LinearLayout.LayoutParams(av, av)
+            ivLp.marginEnd = dpToPx(10)
+            iv.layoutParams = ivLp
+            iv.scaleType = ImageView.ScaleType.CENTER_CROP
+            iv.setImageResource(R.drawable.ic_account)
+            if (!TextUtils.isEmpty(avatar)) {
+                Glide.with(this).load(avatar).circleCrop()
+                    .placeholder(ColorDrawable(0xFFE0E0E0.toInt()))
+                    .error(ColorDrawable(0xFFBDBDBD.toInt()))
+                    .into(iv)
+            }
+            val tv = TextView(this)
+            tv.text = name
+            tv.textSize = 15f
+            tv.setTextColor(getColor(R.color.text_primary))
+            tv.layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+            row.addView(iv)
+            row.addView(tv)
+            row.setOnClickListener {
+                sheet.dismiss()
+                openUserProfile(uid, name)
+            }
+            list.addView(row)
+            rowViews.add(row)
+            imgViews.add(iv)
+            nameViews.add(tv)
+        }
+
+        sheet.setContentView(card)
+        
+        sheet.setOnShowListener {
+            val bottomSheet = sheet.findViewById<View>(
+                com.google.android.material.R.id.design_bottom_sheet)
+            if (bottomSheet != null) {
+                bottomSheet.setBackgroundColor(android.graphics.Color.TRANSPARENT)
+                val behavior = BottomSheetBehavior.from(bottomSheet)
+                behavior.skipCollapsed = true
+                behavior.state = BottomSheetBehavior.STATE_EXPANDED
+            }
+        }
+        
+        
+        
+        
+        
+        sheet.setDismissWithAnimation(true)
+        sheet.show()
+
+        
+        val tidForLikers = tid
+        java.lang.Thread({
+            val items = LikeUserFetcher.fetch(tidForLikers)
+            if (items.isEmpty()) {
+                return@Thread
+            }
+            runOnUiThread {
+                if (isFinishing || isDestroyed) {
+                    return@runOnUiThread
+                }
+                var k = 0
+                while (k < rowViews.size && k < items.size) {
+                    val it = items[k]
+                    nameViews[k].text = it.name
+                    if (!TextUtils.isEmpty(it.avatar)) {
+                        Glide.with(this)
+                            .load(it.avatar).circleCrop()
+                            .placeholder(ColorDrawable(0xFFE0E0E0.toInt()))
+                            .error(ColorDrawable(0xFFBDBDBD.toInt()))
+                            .into(imgViews[k])
+                    }
+                    k++
+                }
+            }
+        }, "like-user-fetch").start()
+    }
+
+    
+
+    private fun sanitizeImageUrl(url: String?): String {
+        if (url.isNullOrBlank()) return ""
+        val unescaped = url.trim()
+            .replace("&amp;", "&")
+            .replace("&#38;", "&")
+            .replace("&quot;", "")
+            .replace("'", "")
+            .replace("\"", "")
+        return normalizeImageUrl(unescaped) ?: unescaped
+    }
+
+    private fun extractAidFromUrl(url: String): String {
+        val m = Pattern.compile("(?i)[?&]aid=([a-zA-Z0-9_-]+)").matcher(url)
+        return if (m.find()) m.group(1) ?: "" else ""
+    }
+
+    
+
+
+    private fun getImageCanonicalKey(url: String?): String {
+        if (url.isNullOrBlank()) return ""
+        val clean = sanitizeImageUrl(url).lowercase(Locale.ROOT)
+        val aid = extractAidFromUrl(clean)
+        if (aid.isNotEmpty()) {
+            return "aid:$aid"
+        }
+        val noQuery = clean.substringBefore("?").substringBefore("#")
+        val stripped = noQuery
+            .replace(".thumb.jpg", "")
+            .replace(".thumb.png", "")
+            .replace(".middle.jpg", "")
+            .replace(".middle.png", "")
+            .replace("_thumb.jpg", ".jpg")
+            .replace("_thumb.png", ".png")
+        val lastSlash = stripped.lastIndexOf('/')
+        return if (lastSlash >= 0) stripped.substring(lastSlash + 1) else stripped
+    }
+
+    private fun isSameImage(url1: String?, url2: String?): Boolean {
+        if (url1.isNullOrBlank() || url2.isNullOrBlank()) return false
+        val clean1 = sanitizeImageUrl(url1)
+        val clean2 = sanitizeImageUrl(url2)
+        if (clean1.equals(clean2, ignoreCase = true)) return true
+        val key1 = getImageCanonicalKey(clean1)
+        val key2 = getImageCanonicalKey(clean2)
+        return key1.isNotEmpty() && key1 == key2
+    }
+
+    private fun openImagePreview(url: String?) {
+        val cleanTarget = sanitizeImageUrl(url)
+        if (TextUtils.isEmpty(cleanTarget)) {
+            return
+        }
+        val intent = Intent(this, ImagePreviewActivity::class.java)
+        
+        val rawList = ArrayList(currentImageList)
+        val list = ArrayList<String>()
+        for (item in rawList) {
+            val s = sanitizeImageUrl(item)
+            if (s.isNotEmpty() && list.none { isSameImage(it, s) }) {
+                list.add(s)
+            }
+        }
+        var targetIndex = list.indexOfFirst { isSameImage(it, cleanTarget) }
+        if (targetIndex < 0) {
+            list.add(cleanTarget)
+            targetIndex = list.size - 1
+        }
+        if (list.size > 1) {
+            intent.putStringArrayListExtra("image_urls", ArrayList(list))
+            intent.putExtra("image_index", targetIndex)
+        } else {
+            intent.putExtra("image_url", cleanTarget)
+        }
+        try {
+            startActivity(intent)
+        } catch (e: Exception) {
+            Toast.makeText(this, "无法打开图片", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun pickImage() {
+        val intent = Intent(Intent.ACTION_PICK)
+        intent.data = android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI
+        intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
+        intent.type = "image/*"
+        startActivityForResult(intent, REQUEST_IMAGE_PICK)
+    }
+
+    
+    private fun addPendingImages(uris: List<Uri>?) {
+        if (uris == null) return
+        for (uri in uris) {
+            if (!pendingImageUris.contains(uri)) {
+                pendingImageUris.add(uri)
+                uploadPendingImage(uri)
+            }
+        }
+        refreshAllImagePreviews()
+    }
+
+    
+    private fun removePendingImage(uri: Uri) {
+        pendingImageUris.remove(uri)
+        val aid = uploadedAidMap.remove(uri)
+        if (aid != null) {
+            val tag = "[attachimg]" + aid + "[/attachimg]"
+            var cur = binding.etReply.text.toString()
+            cur = cur.replace(tag, "")
+            binding.etReply.setText(cur)
+            binding.etReply.setSelection(binding.etReply.length())
+            synchronized(pendingUploadAids) {
+                pendingUploadAids.remove(aid)
+            }
+        }
+        refreshAllImagePreviews()
+    }
+
+    
+    private fun refreshAllImagePreviews() {
+        updateInlineImagePreview()
+        if (isReplyPanelShowing()) {
+            updateDialogImagePreview()
+        }
+    }
+
+    
+    private fun updateInlineImagePreview() {
+        val hsv = binding.root.findViewById<android.widget.HorizontalScrollView>(R.id.hsv_inline_image_preview)
+        val ll = binding.root.findViewById<LinearLayout>(R.id.ll_inline_image_preview)
+        if (hsv == null || ll == null) return
+        if (pendingImageUris.isEmpty()) {
+            hsv.visibility = View.GONE
+            return
+        }
+        hsv.visibility = View.VISIBLE
+        ll.removeAllViews()
+        for (uri in pendingImageUris) {
+            ll.addView(buildPreviewThumbnail(uri))
+        }
+    }
+
+    
+    private fun updateDialogImagePreview() {
+        val panel = binding.containerReplyPanel
+        val hsv = panel.findViewById<android.widget.HorizontalScrollView>(R.id.hsv_image_preview)
+        val ll = panel.findViewById<LinearLayout>(R.id.ll_image_preview)
+        if (hsv == null || ll == null) return
+        if (pendingImageUris.isEmpty()) {
+            hsv.visibility = View.GONE
+            return
+        }
+        hsv.visibility = View.VISIBLE
+        ll.removeAllViews()
+        for (uri in pendingImageUris) {
+            ll.addView(buildPreviewThumbnail(uri))
+        }
+    }
+
+    
+    private fun buildPreviewThumbnail(uri: Uri): View {
+        val size = dpToPx(72)
+        val frame = android.widget.FrameLayout(this)
+        frame.layoutParams = LinearLayout.LayoutParams(size, size)
+        frame.setPadding(dpToPx(2), dpToPx(2), dpToPx(2), dpToPx(2))
+
+        val iv = ShapeableImageView(this)
+        iv.layoutParams = android.widget.FrameLayout.LayoutParams(size - dpToPx(4), size - dpToPx(4))
+        iv.scaleType = ImageView.ScaleType.CENTER_CROP
+        iv.shapeAppearanceModel = ShapeAppearanceModel.builder()
+            .setAllCorners(CornerFamily.ROUNDED, dpToPx(6).toFloat())
+            .build()
+        Glide.with(this).load(uri).centerCrop().into(iv)
+        frame.addView(iv)
+
+        val btnSize = dpToPx(22)
+        val lp = android.widget.FrameLayout.LayoutParams(btnSize, btnSize)
+        lp.gravity = Gravity.TOP or Gravity.END
+        val btnDelete = ImageButton(this)
+        btnDelete.layoutParams = lp
+        btnDelete.setImageResource(R.drawable.ic_cross)
+        btnDelete.scaleType = ImageView.ScaleType.FIT_CENTER
+        btnDelete.setPadding(dpToPx(4), dpToPx(4), dpToPx(4), dpToPx(4))
+        btnDelete.setColorFilter(0xFFFFFFFF.toInt())
+        val bg = GradientDrawable()
+        bg.shape = GradientDrawable.OVAL
+        bg.setColor(0x99000000.toInt())
+        bg.setSize(btnSize, btnSize)
+        btnDelete.background = bg
+        btnDelete.setOnClickListener { removePendingImage(uri) }
+        frame.addView(btnDelete)
+
+        return frame
+    }
+
+    
+    private fun uploadPendingImage(uri: Uri) {
+        if (imageUploadInProgress) {
+            synchronized(imageUploadPendingQueue) {
+                if (!imageUploadPendingQueue.contains(uri)) imageUploadPendingQueue.add(uri)
+            }
+            return
+        }
+        imageUploadInProgress = true
+        java.lang.Thread({
+            try {
+                val file = transcodeReplyImageToJpeg(uri)
+                if (file == null || !file.exists() || file.length() == 0L) {
+                    runOnUiThread {
+                        imageUploadInProgress = false
+                        drainUploadQueue()
+                        Toast.makeText(this, "图片读取失败,请换一张试试", Toast.LENGTH_SHORT).show()
+                    }
+                    return@Thread
+                }
+                if (!httpClient.isLoggedIn()) {
+                    httpClient.syncFromCookieManager()
+                    if (!httpClient.isLoggedIn()) {
+                        runOnUiThread { imageUploadInProgress = false }
+                        return@Thread
+                    }
+                }
+                val detailHtml = httpClient.getDesktop(ForumParser.getThreadDetailUrl(tid))
+                var uid = extractUploadValue(detailHtml, "discuz_uid")
+                var hash = extractUploadValue(detailHtml, "hash")
+                if (!isValidUploadUid(uid)) uid = null
+                if (TextUtils.isEmpty(uid) || TextUtils.isEmpty(hash)) {
+                    var fid = extractForumFid(detailHtml)
+                    if (TextUtils.isEmpty(fid)) fid = "39"
+                    val postHtml = httpClient.getDesktop(
+                        HttpClient.BASE_URL + "forum.php?mod=post&action=newthread&fid=" + fid
+                    )
+                    if (TextUtils.isEmpty(uid)) uid = extractUploadValue(postHtml, "discuz_uid")
+                    if (!isValidUploadUid(uid)) uid = null
+                    if (TextUtils.isEmpty(hash)) hash = extractUploadValue(postHtml, "hash")
+                }
+                if (!isValidUploadUid(uid) || TextUtils.isEmpty(hash)) {
+                    runOnUiThread {
+                        imageUploadInProgress = false
+                        drainUploadQueue()
+                        Toast.makeText(this, "图片上传授权失败,请重新登录后重试", Toast.LENGTH_SHORT).show()
+                    }
+                    return@Thread
+                }
+                logUploadAuth(uid, hash)
+                val extra = HashMap<String, String>()
+                extra["uid"] = uid!!
+                extra["hash"] = hash!!
+                val url = HttpClient.BASE_URL + "misc.php?mod=swfupload&operation=upload" +
+                        "&type=image&inajax=yes&infloat=yes&simple=2"
+                val result = httpClient.uploadFileWithUserAgent(
+                    url, file, "Filedata", extra, HttpClient.DESKTOP_USER_AGENT, "image/jpeg"
+                )
+                val aid = parseUploadAid(result)
+                if (!TextUtils.isEmpty(aid)) {
+                    synchronized(pendingUploadAids) {
+                        if (!pendingUploadAids.contains(aid)) pendingUploadAids.add(aid!!)
+                    }
+                    uploadedAidMap[uri] = aid!!
+                    val tag = "\n[attachimg]" + aid + "[/attachimg]"
+                    runOnUiThread {
+                        binding.etReply.append(tag)
+                    }
+                }
+            } catch (ignored: Exception) {
+            } finally {
+                runOnUiThread {
+                    imageUploadInProgress = false
+                    drainUploadQueue()
+                }
+            }
+        }).start()
+    }
+
+    
+    private fun drainUploadQueue() {
+        val next: Uri
+        synchronized(imageUploadPendingQueue) {
+            if (imageUploadInProgress || imageUploadPendingQueue.isEmpty()) return
+            next = imageUploadPendingQueue.removeAt(0)
+        }
+        uploadPendingImage(next)
+    }
+
+    
+    private fun buildAttachTags(): String {
+        val sb = StringBuilder()
+        synchronized(pendingUploadAids) {
+            for (aid in pendingUploadAids) {
+                sb.append("[attachimg]").append(aid).append("[/attachimg]\n")
+            }
+        }
+        return sb.toString()
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == REQUEST_EDIT_THREAD && resultCode == RESULT_OK) {
+            
+            refreshPostDetail()
+            return
+        }
+        if (requestCode == REQUEST_IMAGE_PICK && resultCode == RESULT_OK && data != null) {
+            val imageUris = ArrayList<Uri>()
+            if (data.clipData != null) {
+                val count = data.clipData!!.itemCount
+                for (i in 0 until count) {
+                    val uri = data.clipData!!.getItemAt(i).uri
+                    if (uri != null) imageUris.add(uri)
+                }
+            } else if (data.data != null) {
+                imageUris.add(data.data!!)
+            }
+            if (!imageUris.isEmpty()) {
+                addPendingImages(imageUris)
+            }
+        }
+    }
+
+    private fun getDisplayNameFromUri(uri: Uri?): String? {
+        if (uri == null) return null
+        var cursor: Cursor? = null
+        try {
+            cursor = contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)
+            if (cursor != null && cursor.moveToFirst()) {
+                val column = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                if (column >= 0) return cursor.getString(column)
+            }
+        } catch (ignored: Exception) {
+        } finally {
+            cursor?.close()
+        }
+        val path = uri.lastPathSegment
+        return if (TextUtils.isEmpty(path)) null else path
+    }
+
+    private fun buildUploadFileName(sourceName: String?, mimeType: String?): String {
+        val name = if (TextUtils.isEmpty(sourceName)) ""
+        else Regex("[\\\\/:*?\"<>|]").replace(sourceName!!, "_")
+        if (name.isEmpty() || !name.matches(Regex("(?i).*\\.[a-z0-9]{2,5}$"))) {
+            val extension = extensionFromMimeType(mimeType)
+            return "reply_" + System.currentTimeMillis() + extension
+        }
+        return name
+    }
+
+    private fun extensionFromMimeType(mimeType: String?): String {
+        if ("image/png".equals(mimeType, ignoreCase = true)) return ".png"
+        if ("image/gif".equals(mimeType, ignoreCase = true)) return ".gif"
+        if ("image/webp".equals(mimeType, ignoreCase = true)) return ".webp"
+        if ("image/bmp".equals(mimeType, ignoreCase = true)) return ".bmp"
+        if ("image/heic".equals(mimeType, ignoreCase = true)
+            || "image/heif".equals(mimeType, ignoreCase = true)
+        ) return ".heic"
+        return ".jpg"
+    }
+
+    private fun uploadAndAttachImage(imageUri: Uri) {
+        if (imageUploadInProgress) {
+            Toast.makeText(this, "已有图片正在上传,请稍候", Toast.LENGTH_SHORT).show()
+            return
+        }
+        pendingImageUri = imageUri
+        imageUploadInProgress = true
+        Toast.makeText(this, "正在上传图片...", Toast.LENGTH_SHORT).show()
+        java.lang.Thread {
+            var file: File? = null
+            try {
+                if (!httpClient.isLoggedIn()) httpClient.syncFromCookieManager()
+                if (!httpClient.isLoggedIn()) {
+                    runOnUiThread { promptLogin() }
+                    return@Thread
+                }
+                file = transcodeReplyImageToJpeg(imageUri)
+                if (file == null || !file.exists() || file.length() == 0L) {
+                    showUploadError("无法读取或转换图片文件")
+                    return@Thread
+                }
+                val detailHtml = httpClient.getDesktop(ForumParser.getThreadDetailUrl(tid))
+                var uid = extractUploadValue(detailHtml, "discuz_uid")
+                var hash = extractUploadValue(detailHtml, "hash")
+                if (!isValidUploadUid(uid)) uid = null
+                if (TextUtils.isEmpty(uid) || TextUtils.isEmpty(hash)) {
+                    var fid = extractForumFid(detailHtml)
+                    if (TextUtils.isEmpty(fid)) fid = "39"
+                    val postHtml = httpClient.getDesktop(
+                        HttpClient.BASE_URL + "forum.php?mod=post&action=newthread&fid=" + fid
+                    )
+                    if (TextUtils.isEmpty(uid)) uid = extractUploadValue(postHtml, "discuz_uid")
+                    if (!isValidUploadUid(uid)) uid = null
+                    if (TextUtils.isEmpty(hash)) hash = extractUploadValue(postHtml, "hash")
+                }
+                if (!isValidUploadUid(uid) || TextUtils.isEmpty(hash)) {
+                    showUploadError("获取图片上传授权失败,请重新登录后重试")
+                    return@Thread
+                }
+                val extra = HashMap<String, String>()
+                extra["uid"] = uid!!
+                extra["hash"] = hash!!
+                val url = HttpClient.BASE_URL + "misc.php?mod=swfupload&operation=upload" +
+                        "&type=image&inajax=yes&infloat=yes&simple=2"
+                val result = httpClient.uploadFileWithUserAgent(
+                    url, file!!, "Filedata", extra, HttpClient.DESKTOP_USER_AGENT, "image/jpeg"
+                )
+                val aid = parseUploadAid(result)
+                if (TextUtils.isEmpty(aid)) {
+                    showUploadError(extractUploadError(result))
+                    return@Thread
+                }
+                val finalAid = aid!!
+                synchronized(pendingUploadAids) {
+                    if (!pendingUploadAids.contains(finalAid)) pendingUploadAids.add(finalAid)
+                }
+                runOnUiThread {
+                    binding.etReply.append("\n[attachimg]" + finalAid + "[/attachimg]")
+                    Toast.makeText(this, "图片已上传,发送评论后才会正式关联", Toast.LENGTH_SHORT).show()
+                    imageUploadInProgress = false
+                }
+            } catch (e: Exception) {
+                showUploadError(
+                    "图片上传失败:" + if (TextUtils.isEmpty(e.message)) "网络异常,请稍后重试" else e.message
+                )
+            } finally {
+                file?.delete()
+                runOnUiThread { imageUploadInProgress = false }
+            }
+        }.start()
+    }
+
+    
+
+
+
+
+
+    private fun parseUploadAid(response: String?): String? {
+        if (TextUtils.isEmpty(response)) return null
+        val text = Regex("(?s)<[^>]+>").replace(response!!.trim(), "").trim()
+        if (text.isEmpty()) return null
+        if (text.uppercase(Locale.ROOT).startsWith("DISCUZUPLOAD|")) {
+            val parts = text.split("\\|".toRegex()).toTypedArray()
+            val statusIndex = if (parts.size >= 8) 2 else 1
+            val aidIndex = statusIndex + 1
+            if (parts.size > aidIndex
+                && parts[statusIndex].trim().toIntOrNull() == 0
+                && parts[aidIndex].trim().matches(Regex("\\d+"))
+            ) {
+                return parts[aidIndex].trim()
+            }
+            return null
+        }
+        return null
+    }
+
+    
+    private fun logUploadAuth(uid: String?, hash: String?) {
+        com.solosu.mtforum.util.AiLog.i(
+            "upload",
+            "upload auth uid=" + (uid ?: "null") + " hashLen=" + (hash?.length ?: 0)
+                    + " loggedIn=" + httpClient.isLoggedIn()
+        )
+    }
+
+    
+
+
+
+
+    private fun extractUploadError(response: String?): String {
+        val raw = response?.trim() ?: ""
+        com.solosu.mtforum.util.AiLog.i("upload", "附件上传响应: " + com.solosu.mtforum.util.AiLog.clip(raw, 300))
+        if (raw.isEmpty()) {
+            return "附件上传失败：上传校验未通过，请重新登录后重试"
+        }
+        if (ForumParser.isLoginPage(raw) || containsAny(raw, "请先登录")) {
+            return "登录状态已失效，请重新登录"
+        }
+        val text = Regex("(?s)<[^>]+>").replace(raw, " ").trim()
+        if (text.uppercase(Locale.ROOT).startsWith("DISCUZUPLOAD|")) {
+            val parts = text.split("\\|".toRegex()).toTypedArray()
+            val statusIndex = if (parts.size >= 8) 2 else 1
+            val status = if (parts.size > statusIndex) parts[statusIndex].trim().toIntOrNull() else null
+            if (status != null && status != 0) return uploadStatusReason(status)
+            return "附件上传失败，请检查文件格式、大小和登录状态"
+        }
+        return "附件上传失败，请检查文件格式、大小和登录状态"
+    }
+
+    
+    private fun uploadStatusReason(status: Int): String {
+        return when (status) {
+            1 -> "此类型附件不允许上传"
+            2 -> "文件上传失败或为空"
+            3 -> "附件超过大小限制"
+            4, 5 -> "该格式附件被禁止或超过格式大小限制"
+            6 -> "今日附件数量已达上限"
+            7 -> "不是有效的图片文件"
+            8, 9 -> "附件保存失败，请稍后重试"
+            10 -> "上传校验失败，请重新登录后重试"
+            11 -> "今日附件总大小已达上限"
+            12 -> "文件名含敏感词，请改名后重试"
+            13 -> "图片尺寸不符合要求"
+            else -> "附件上传失败（错误码 $status）"
+        }
+    }
+
+    private fun showUploadError(message: String) {
+        runOnUiThread { Toast.makeText(this, message, Toast.LENGTH_SHORT).show() }
+    }
+
+    private fun extractForumFid(html: String?): String? {
+        if (TextUtils.isEmpty(html)) {
+            return null
+        }
+        val m = Pattern.compile("(?:forum-|[?&]fid=)(\\d+)").matcher(html!!)
+        if (m.find()) {
+            return m.group(1)
+        }
+        return null
+    }
+
+    private fun extractUploadValue(html: String?, key: String): String? {
+        if (TextUtils.isEmpty(html)) {
+            return null
+        }
+        val quotedKey = Pattern.quote(key)
+        var m = Pattern.compile(
+            "(?:var\\s+|\\b)" + quotedKey + "\\s*(?:=|:)\\s*['\"]([^'\"]+)['\"]",
+            Pattern.CASE_INSENSITIVE
+        ).matcher(html!!)
+        if (m.find()) return m.group(1)
+        m = Pattern.compile("\\\"" + quotedKey + "\\\"\\s*:\\s*['\"]([^'\"]+)['\"]", Pattern.CASE_INSENSITIVE)
+            .matcher(html)
+        if (m.find()) return m.group(1)
+        m = Pattern.compile(
+            "<input[^>]+name\\s*=\\s*['\"]" + quotedKey + "['\"][^>]+value\\s*=\\s*['\"]([^'\"]+)['\"]",
+            Pattern.CASE_INSENSITIVE
+        ).matcher(html)
+        if (m.find()) return m.group(1)
+        m = Pattern.compile(
+            "<input[^>]+value\\s*=\\s*['\"]([^'\"]+)['\"][^>]+name\\s*=\\s*['\"]" + quotedKey + "['\"]",
+            Pattern.CASE_INSENSITIVE
+        ).matcher(html)
+        if (m.find()) return m.group(1)
+        m = Pattern.compile("[?&]" + quotedKey + "=([^&\"'<>\\s]+)", Pattern.CASE_INSENSITIVE).matcher(html)
+        if (m.find()) return m.group(1)
+        return null
+    }
+
+    @Throws(Exception::class)
+    private fun transcodeReplyImageToJpeg(uri: Uri?): File? {
+        if (uri == null) {
+            return null
+        }
+        val source = android.graphics.ImageDecoder.createSource(contentResolver, uri)
+        val decoded = android.graphics.ImageDecoder.decodeBitmap(source) { decoder, info, _ ->
+            val width = info.size.width
+            val height = info.size.height
+            val largest = maxOf(width, height)
+            if (largest > 1920) {
+                val scale = 1920.0f / largest
+                decoder.setTargetSize(
+                    maxOf(1, Math.round(width * scale)),
+                    maxOf(1, Math.round(height * scale))
+                )
+            }
+            decoder.allocator = android.graphics.ImageDecoder.ALLOCATOR_SOFTWARE
+        }
+        if (decoded == null || decoded.width <= 0 || decoded.height <= 0) {
+            return null
+        }
+        val flattened = Bitmap.createBitmap(decoded.width, decoded.height, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(flattened)
+        canvas.drawColor(-1)
+        canvas.drawBitmap(decoded, 0.0f, 0.0f, null)
+        if (flattened != decoded) {
+            decoded.recycle()
+        }
+        var jpeg: ByteArray? = null
+        var quality = 88
+        while (quality >= 58) {
+            val output = ByteArrayOutputStream()
+            flattened.compress(Bitmap.CompressFormat.JPEG, quality, output)
+            jpeg = output.toByteArray()
+            if (jpeg.size <= 2097152 || quality == 58) {
+                break
+            }
+            quality -= 6
+        }
+        flattened.recycle()
+        if (jpeg == null || jpeg.isEmpty()) {
+            return null
+        }
+        val dir = File(cacheDir, "reply_uploads")
+        if (!dir.exists() && !dir.mkdirs()) {
+            return null
+        }
+        val target = File(dir, "reply_" + System.currentTimeMillis() + ".jpg")
+        FileOutputStream(target).use {
+            it.write(jpeg)
+            it.flush()
+        }
+        return target
+    }
+
+    @Throws(Exception::class)
+    private fun copyUriToTempFile(uri: Uri, fileName: String?): File? {
+        val dir = File(cacheDir, "reply_uploads")
+        if (!dir.exists()) {
+            dir.mkdirs()
+        }
+        val file = File(dir, fileName)
+        contentResolver.openInputStream(uri).use { input ->
+            if (input == null) return null
+            FileOutputStream(file).use { out ->
+                val buffer = ByteArray(8192)
+                while (true) {
+                    val len = input.read(buffer)
+                    if (len == -1) {
+                        break
+                    }
+                    out.write(buffer, 0, len)
+                }
+            }
+        }
+        return file
+    }
+
+    private fun shareThread() {
+        val detail = postDetail
+        if (detail == null) {
+            return
+        }
+        val shareText = detail.title + "\n" + HttpClient.BASE_URL + "thread-" + tid + "-1-1.html"
+        val shareIntent = Intent("android.intent.action.SEND")
+        
+        
+        
+        shareIntent.type = "text/plain"
+        shareIntent.putExtra("android.intent.extra.TEXT", shareText)
+        startActivity(Intent.createChooser(shareIntent, "分享帖子"))
+    }
+
+    
+
+    private fun showRewardDialog() {
+        if (!httpClient.isLoggedIn()) {
+            promptLogin()
+            return
+        }
+        
+        val isReplyTarget = !TextUtils.isEmpty(rewardTargetPid)
+        if (!isReplyTarget) {
+            val currentUid = UserSessionManager.getInstance().getUid(applicationContext)
+            val authorUid = postDetail?.authorUid
+            if (!TextUtils.isEmpty(currentUid) && !TextUtils.isEmpty(authorUid) && currentUid == authorUid) {
+                Toast.makeText(this, "不能给自己打赏", Toast.LENGTH_SHORT).show()
+                return
+            }
+        }
+        val dialog = BottomSheetDialog(this)
+        val view = layoutInflater.inflate(R.layout.dialog_reward, null)
+        dialog.setContentView(view)
+        val cardReward = view.findViewById<MaterialCardView>(R.id.card_reward)
+        if (cardReward != null) FrostedGlassHelper.applyToCardViews(cardReward, this)
+        dialog.setOnShowListener {
+            val parent = view.parent as? View
+            if (parent != null) {
+                parent.setBackgroundResource(android.R.color.transparent)
+                val behavior = BottomSheetBehavior.from(parent)
+                behavior.peekHeight = (resources.displayMetrics.heightPixels * 0.5).toInt()
+            }
+        }
+        val ivAvatar = view.findViewById<ImageView>(R.id.iv_reward_author_avatar)
+        val tvAuthorName = view.findViewById<TextView>(R.id.tv_reward_author_name)
+        val tvHint = view.findViewById<TextView>(R.id.tv_reward_hint)
+        val spinnerAmount = view.findViewById<Spinner>(R.id.spinner_reward_amount)
+        val switchNotify = view.findViewById<SwitchCompat>(R.id.switch_notify_author)
+        val btnSubmit = view.findViewById<Button>(R.id.btn_submit_reward)
+        val displayName = if (!TextUtils.isEmpty(rewardTargetName)) rewardTargetName
+        else (postDetail?.author ?: "")
+        val displayAvatar = if (!TextUtils.isEmpty(rewardTargetAvatar)) rewardTargetAvatar
+        else postDetail?.avatarUrl
+        if (!TextUtils.isEmpty(displayName)) {
+            tvAuthorName.text = displayName
+            tvHint.text = "给 $displayName 打赏鼓励吧"
+            if (!TextUtils.isEmpty(displayAvatar)) {
+                Glide.with(this).load(displayAvatar).transform(CircleCrop())
+                    .placeholder(R.drawable.ic_account).error(R.drawable.ic_account)
+                    .into(ivAvatar)
+            } else {
+                ivAvatar.setImageResource(R.drawable.ic_account)
+            }
+        }
+        val amounts = arrayOf("1", "5", "10", "50", "100")
+        val adapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, amounts)
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        spinnerAmount.adapter = adapter
+        val etRewardMessage = view.findViewById<EditText>(R.id.et_reward_message)
+        btnSubmit.setOnClickListener {
+            val selectedAmount = amounts[spinnerAmount.selectedItemPosition].toInt()
+            val notifyAuthor = switchNotify.isChecked
+            val message = etRewardMessage.text.toString().trim()
+            dialog.dismiss()
+            performReward(selectedAmount, notifyAuthor, "", message)
+        }
+        dialog.show()
+    }
+
+    private fun performReward(amount: Int, notifyAuthor: Boolean, goodReview: String, message: String) {
+        java.lang.Thread {
+            try {
+                val detail = postDetail ?: throw IllegalStateException("帖子数据为空")
+                var pid = if (TextUtils.isEmpty(rewardTargetPid)) detail.postPid else rewardTargetPid
+                
+                rewardTargetPid = ""
+                rewardTargetName = ""
+                rewardTargetAvatar = ""
+                if (TextUtils.isEmpty(pid)) {
+                    val page = httpClient.get(ForumParser.getThreadDetailUrl(tid))
+                    val latest = ForumParser.parseThreadDetail(page)
+                    pid = latest.postPid
+                    if (!TextUtils.isEmpty(latest.formhash)) {
+                        detail.formhash = latest.formhash
+                    }
+                }
+                if (TextUtils.isEmpty(pid)) {
+                    throw IllegalStateException("无法获取帖子正文编号")
+                }
+                var rateForm = ""
+                try {
+                    val rateUrl = "https://bbs.binmt.cc/forum.php?mod=misc&action=rate&tid=" + tid +
+                            "&pid=" + pid + "&showratetip=1&inajax=1&mobile=2"
+                    rateForm = httpClient.get(rateUrl)
+                } catch (ignored: Exception) {
+                }
+                var fh = ForumParser.parseFormhash(rateForm)
+                if (TextUtils.isEmpty(fh)) {
+                    fh = detail.formhash
+                }
+                if (TextUtils.isEmpty(fh)) {
+                    val page2 = httpClient.get(ForumParser.getThreadDetailUrl(tid))
+                    fh = ForumParser.parseFormhash(page2)
+                }
+                if (TextUtils.isEmpty(fh)) {
+                    throw IllegalStateException("无法获取操作验证")
+                }
+                val params = HashMap<String, String>()
+                params["formhash"] = fh!!
+                params["tid"] = tid!!
+                params["pid"] = pid!!
+                params["ratesubmit"] = "yes"
+                params["referer"] = ForumParser.getThreadDetailUrl(tid)
+                params["score1"] = "1"
+                params["score2"] = amount.toString()
+                var reason = message
+                if (TextUtils.isEmpty(reason)) {
+                    reason = goodReview
+                } else if (!TextUtils.isEmpty(goodReview)) {
+                    reason = "$goodReview：$reason"
+                }
+                if (!TextUtils.isEmpty(reason)) {
+                    params["reason"] = reason
+                }
+                val rewardUrl = "https://bbs.binmt.cc/forum.php?mod=misc&action=rate&tid=" + tid +
+                        "&pid=" + pid + "&ratesubmit=yes&inajax=1&mobile=2"
+                val result = httpClient.post(rewardUrl, params)
+                val success = isForumActionResponseSuccessful(result)
+                val rewardError = if (success) "" else extractRewardError(result)
+                runOnUiThread {
+                    if (success) {
+                        Toast.makeText(
+                            this, getString(R.string.reward_success, amount), Toast.LENGTH_SHORT
+                        ).show()
+                        refreshPostDetail()
+                    } else {
+                        val msg = if (TextUtils.isEmpty(rewardError)) getString(R.string.reward_failed)
+                        else rewardError
+                        Toast.makeText(this, msg, Toast.LENGTH_LONG).show()
+                    }
+                }
+            } catch (e: Exception) {
+                runOnUiThread {
+                    Toast.makeText(this, R.string.reward_failed, Toast.LENGTH_SHORT).show()
+                }
+            }
+        }.start()
+    }
+
+    private fun isForumActionResponseSuccessful(response: String?): Boolean {
+        if (TextUtils.isEmpty(response) || ForumParser.isLoginPage(response) || isRewardLimitOrFailure(response)) {
+            return false
+        }
+        val lower = response!!.lowercase(Locale.ROOT)
+        return lower.contains("succeedhandle_rate") || lower.contains("rate_success")
+                || containsAny(response, "评分成功", "打赏成功", "您已成功评分", "评价成功")
+    }
+
+    private fun isRewardLimitOrFailure(response: String?): Boolean {
+        return containsAny(
+            response,
+            "24小时", "24 小时", "24hours", "24 hours", "每24小时只能评分一次", "每 24 小时只能评分一次",
+            "24小时内已经评分", "24 小时内已经评分", "您已评价过本主题", "您已经评价过本主题",
+            "您已评分过本主题", "您已经评分过本主题", "已经评分过", "已经评价过", "重复评分",
+            "评分过本主题", "thread_rate_duplicate", "rate_duplicate", "评分失败", "评分范围错误",
+            "thread_rate_range_invalid", "credit_limit_invalid", "积分不足", "余额不足",
+            "提交频率过快", "操作频繁", "暂不支持高级操作", "formhash错误", "非法操作",
+            "没有权限", "请先登录", "未定义操作", "undefined action", "操作失败"
+        )
+    }
+
+    private fun extractRewardError(response: String?): String {
+        if (TextUtils.isEmpty(response)) {
+            return "打赏失败，服务器未返回结果"
+        }
+        if (!ForumParser.isLoginPage(response) && !containsAny(response, "请先登录")) {
+            if (!containsAny(
+                    response,
+                    "24小时", "24 小时", "24hours", "24 hours", "每24小时只能评分一次",
+                    "每 24 小时只能评分一次", "24小时内已经评分", "24 小时内已经评分", "重复评分",
+                    "已评价过本主题", "已评分过本主题", "已经评分过", "已经评价过", "评分过本主题"
+                )
+            ) {
+                if (!containsAny(response, "积分不足", "余额不足", "credit_limit_invalid")) {
+                    if (!containsAny(response, "formhash错误", "非法操作")) {
+                        if (!containsAny(response, "没有权限", "暂不支持高级操作")) {
+                            if (containsAny(response, "提交频率过快", "操作频繁")) {
+                                return "操作过于频繁，请稍后再试"
+                            }
+                            return "打赏失败，请重试"
+                        }
+                        return "当前账号没有评分权限"
+                    }
+                    return "验证已失效，请刷新页面后重试"
+                }
+                return "积分余额不足，无法完成打赏"
+            }
+            return "24小时内只能对同一帖子评分一次，请稍后再试"
+        }
+        return "登录状态已失效，请重新登录"
+    }
+
+    private fun showKickDialog() {
+        performKick()
+    }
+
+    private fun submitKickRequest(reason: String) {
+        java.lang.Thread {
+            try {
+                val page = httpClient.get(ForumParser.getThreadDetailUrl(tid))
+                var fh = ForumParser.parseFormhash(page)
+                if (TextUtils.isEmpty(fh)) {
+                    fh = postDetail?.formhash
+                }
+                if (TextUtils.isEmpty(fh)) {
+                    throw IllegalStateException("无法获取操作验证")
+                }
+                val kickUrl = "https://bbs.binmt.cc/plugin.php?id=comiis_app&comiis=kick&tid=" + tid +
+                        "&formhash=" + fh + "&inajax=1&mobile=2"
+                val params = HashMap<String, String>()
+                params["formhash"] = fh!!
+                params["tid"] = tid!!
+                params["kick_submit"] = "yes"
+                params["inajax"] = "1"
+                if (!TextUtils.isEmpty(reason)) {
+                    params["kick_reason"] = reason
+                }
+                val result = httpClient.post(kickUrl, params)
+                val success = isForumActionResponseSuccessful(result)
+                runOnUiThread {
+                    if (success) {
+                        Toast.makeText(this, R.string.kick_success, Toast.LENGTH_SHORT).show()
+                        refreshPostDetail()
+                    } else {
+                        Toast.makeText(this, R.string.kick_failed, Toast.LENGTH_SHORT).show()
+                    }
+                }
+            } catch (e: Exception) {
+                runOnUiThread {
+                    Toast.makeText(this, R.string.kick_failed, Toast.LENGTH_SHORT).show()
+                }
+            }
+        }.start()
+    }
+
+    private fun performKick() {
+        if (!httpClient.isLoggedIn()) {
+            promptLogin()
+            return
+        }
+        val currentUid = UserSessionManager.getInstance().getUid(applicationContext)
+        val authorUid = postDetail?.authorUid
+        if (!TextUtils.isEmpty(currentUid) && !TextUtils.isEmpty(authorUid) && currentUid == authorUid) {
+            Toast.makeText(this, "不能踢自己的帖子", Toast.LENGTH_SHORT).show()
+            return
+        }
+        val dialog = BottomSheetDialog(this)
+        val view = layoutInflater.inflate(R.layout.dialog_kick, null)
+        dialog.setContentView(view)
+        dialog.setCancelable(true)
+        val cardKick = view.findViewById<MaterialCardView>(R.id.card_kick)
+        if (cardKick != null) FrostedGlassHelper.applyToCardViews(cardKick, this)
+        dialog.setOnShowListener {
+            val parent = view.parent as? View
+            if (parent != null) {
+                parent.setBackgroundResource(android.R.color.transparent)
+                val behavior = BottomSheetBehavior.from(parent)
+                behavior.peekHeight = (resources.displayMetrics.heightPixels * 0.5).toInt()
+            }
+        }
+        val etKickReason = view.findViewById<EditText>(R.id.et_kick_reason)
+        val btnCloseKick = view.findViewById<Button>(R.id.btn_close_kick)
+        val btnSubmitKick = view.findViewById<Button>(R.id.btn_submit_kick)
+        btnCloseKick.setOnClickListener { dialog.dismiss() }
+        btnSubmitKick.setOnClickListener {
+            val reason = etKickReason.text.toString().trim()
+            if (TextUtils.isEmpty(reason)) {
+                etKickReason.error = "请输入踢帖理由"
+            } else {
+                dialog.dismiss()
+                submitKickRequest(reason)
+            }
+        }
+        dialog.show()
+    }
+
+    
+
+    
+    private fun loginUid(): String {
+        if (currentLoginUid == null) {
+            currentLoginUid = UserSessionManager.getInstance().getUid(applicationContext) ?: ""
+        }
+        return currentLoginUid ?: ""
+    }
+
+    
+    private fun isOwnThread(d: PostDetail?): Boolean {
+        if (d == null) return false
+        val me = loginUid()
+        if (TextUtils.isEmpty(me)) return false
+        if (!TextUtils.isEmpty(d.authorUid) && me == d.authorUid) return true
+        return false
+    }
+
+    
+    private fun openEditThread() {
+        val detail = postDetail ?: return
+        if (!httpClient.isLoggedIn()) {
+            promptLogin()
+            return
+        }
+        if (TextUtils.isEmpty(detail.postPid)) {
+            Toast.makeText(this, "缺少帖子编号,无法编辑", Toast.LENGTH_SHORT).show()
+            return
+        }
+        val it = Intent(this, com.solosu.mtforum.ui.post.PostActivity::class.java)
+        it.putExtra("edit_tid", tid)
+        it.putExtra("edit_pid", detail.postPid)
+        it.putExtra("edit_fid", detail.forumFid)
+        it.putExtra("edit_forum_name", detail.forumName)
+        it.putExtra("edit_title", detail.title)
+        it.putExtra("edit_message", stripContentHtml(detail.contentHtml))
+        
+        
+        
+        
+        
+        it.putStringArrayListExtra("edit_attach_urls", ArrayList(detail.imageUrls ?: emptyList()))
+        startActivityForResult(it, REQUEST_EDIT_THREAD)
+    }
+
+    
+    private fun stripContentHtml(html: String?): String {
+        if (TextUtils.isEmpty(html)) return ""
+        
+        var attachmentMarks = ""
+        try {
+            val am = Pattern.compile(
+                "(?is)\\[attach(?:img)?\\]\\d+\\[/attach(?:img)?\\]", Pattern.CASE_INSENSITIVE
+            ).matcher(html!!)
+            val amsb = StringBuilder()
+            while (am.find()) amsb.append("\n").append(am.group())
+            attachmentMarks = amsb.toString()
+        } catch (ignored: Exception) {
+        }
+        var t = Regex("(?is)<br\\s*/?>").replace(html!!, "\n")
+        t = Regex("(?is)<script[^>]*>.*?</script>").replace(t, "")
+        t = Regex("(?is)<[^>]+>").replace(t, "")
+        t = Html.fromHtml(t).toString().trim()
+        return (t + attachmentMarks).trim()
+    }
+
+    
+    private fun reportPost(pid: String?) {
+        if (!httpClient.isLoggedIn()) {
+            promptLogin()
+            return
+        }
+        val isThread = TextUtils.isEmpty(pid)
+        val dialog = Dialog(this)
+        dialog.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE)
+        val content = layoutInflater.inflate(R.layout.dialog_report, null)
+        dialog.setContentView(content)
+        val win = dialog.window
+        if (win != null) {
+            win.setBackgroundDrawable(ColorDrawable(0))
+            val lp = win.attributes
+            lp.width = (resources.displayMetrics.widthPixels * 0.88f).toInt()
+            win.attributes = lp
+        }
+        val tvTarget = content.findViewById<TextView>(R.id.tv_report_target)
+        tvTarget.text = if (isThread) "举报对象：本帖" else "举报对象：该评论"
+        val cgReason = content.findViewById<ChipGroup>(R.id.cg_report_reason)
+        content.findViewById<View>(R.id.btn_close_report).setOnClickListener { dialog.dismiss() }
+        val etMessage = content.findViewById<EditText>(R.id.et_report_message)
+        content.findViewById<View>(R.id.btn_cancel_report).setOnClickListener { dialog.dismiss() }
+        content.findViewById<View>(R.id.btn_submit_report).setOnClickListener {
+            var reason = "其他"
+            val checkedId = cgReason.checkedChipId
+            val checkedView = if (checkedId != View.NO_ID) cgReason.findViewById<View>(checkedId) else null
+            if (checkedView is Chip) {
+                reason = checkedView.text.toString()
+            }
+            val msg = if (etMessage.text != null) etMessage.text.toString().trim() else ""
+            dialog.dismiss()
+            submitReport(pid, reason, msg)
+        }
+        dialog.show()
+    }
+
+    
+    private fun submitReport(pid: String?, reason: String?, userMessage: String?) {
+        val rtype = if (TextUtils.isEmpty(pid)) "thread" else "post"
+        val rid = if (TextUtils.isEmpty(pid)) tid else pid
+        val finalReason = if (TextUtils.isEmpty(reason)) "其他" else reason
+        val finalMessage =
+            if (TextUtils.isEmpty(userMessage)) "该内容涉嫌违规，请核实处理。" else userMessage
+        java.lang.Thread {
+            try {
+                if (TextUtils.isEmpty(tid)) throw IllegalStateException("缺少帖子编号")
+                val fid = if (postDetail != null && !TextUtils.isEmpty(postDetail!!.forumFid))
+                    postDetail!!.forumFid else "39"
+                val formUrl = HttpClient.BASE_URL + "misc.php?mod=report&rtype=" + rtype +
+                        "&rid=" + rid + "&tid=" + tid + "&fid=" + fid + "&inajax=1&mobile=2"
+                val form = httpClient.get(formUrl)
+                var fh = ForumParser.parseFormhash(form)
+                if (TextUtils.isEmpty(fh) && postDetail != null) fh = postDetail!!.formhash
+                if (TextUtils.isEmpty(fh)) throw IllegalStateException("获取操作验证失败")
+
+                val params = HashMap<String, String>()
+                params["formhash"] = fh!!
+                params["tid"] = tid!!
+                if ("post" == rtype) {
+                    params["pid"] = pid!!
+                }
+                params["fid"] = fid!!
+                params["rtype"] = rtype
+                params["rid"] = rid!!
+                params["reportsubmit"] = "yes"
+                params["reason"] = finalReason!!
+                params["message"] = finalMessage!!
+                val url = HttpClient.BASE_URL + "misc.php?mod=report&rtype=" + rtype +
+                        "&rid=" + rid + "&tid=" + tid + "&fid=" + fid +
+                        "&reportsubmit=yes&inajax=1&mobile=2"
+                val resp = httpClient.post(url, params)
+
+                val ok = !TextUtils.isEmpty(resp) && !ForumParser.isLoginPage(resp)
+                        && !resp!!.contains("举报理由") && !resp.contains("action=login")
+                val msg = if (ok) "举报已提交，感谢反馈" else "举报未成功，请稍后重试"
+                runOnUiThread { Toast.makeText(this, msg, Toast.LENGTH_SHORT).show() }
+            } catch (e: Exception) {
+                runOnUiThread {
+                    Toast.makeText(
+                        this@ThreadDetailActivity,
+                        "举报失败：" + (if (TextUtils.isEmpty(e.message)) "网络异常" else e.message),
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+            }
+        }.start()
+    }
+
+    
+    private fun deleteReply(item: ReplyItem?) {
+        if (item == null || TextUtils.isEmpty(item.pid)) return
+        java.lang.Thread {
+            try {
+                val pid = item.pid!!
+                val formUrl = HttpClient.BASE_URL + "forum.php?mod=post&action=edit&tid=" + tid +
+                        "&pid=" + pid + "&mobile=2"
+                val form = httpClient.get(formUrl)
+                var fh = ForumParser.parseFormhash(form)
+                if (TextUtils.isEmpty(fh) && postDetail != null) fh = postDetail!!.formhash
+                
+                val delHash = extractDeleteHash(form, pid)
+                if (!TextUtils.isEmpty(delHash)) fh = delHash
+                if (TextUtils.isEmpty(fh)) throw IllegalStateException("获取操作验证失败")
+
+                val params = HashMap<String, String>()
+                params["formhash"] = fh!!
+                params["delete"] = "1"
+                params["pid"] = pid
+                params["tid"] = tid!!
+                
+                
+                params["editsubmit"] = "yes"
+                val url = HttpClient.BASE_URL + "forum.php?mod=post&action=edit&extra=&tid=" + tid +
+                        "&pid=" + pid + "&page=1&delete=1&mobile=2"
+                val resp = httpClient.post(url, params)
+                
+                
+                val stillEditForm = resp.contains("editsubmit") || resp.contains("name=\"message\"")
+                val ok = !TextUtils.isEmpty(resp) && !ForumParser.isLoginPage(resp) && !stillEditForm
+                if (!ok) {
+                    AiLog.e(
+                        "delete",
+                        "删除回复未生效 pid=" + pid + " respLen=" + resp.length +
+                                " stillEditForm=" + stillEditForm
+                    )
+                }
+                runOnUiThread {
+                    if (ok) {
+                        Toast.makeText(this, "已删除该回复", Toast.LENGTH_SHORT).show()
+                        refreshPostDetail()
+                    } else {
+                        Toast.makeText(
+                            this,
+                            "删除未生效：站点可能不允许用户删除自己的回复",
+                            Toast.LENGTH_LONG
+                        ).show()
+                    }
+                }
+            } catch (e: Exception) {
+                runOnUiThread {
+                    Toast.makeText(
+                        this@ThreadDetailActivity,
+                        "删除失败：" + (if (TextUtils.isEmpty(e.message)) "网络异常" else e.message),
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+            }
+        }.start()
+    }
+
+    
+    private fun extractDeleteHash(html: String?, pid: String?): String? {
+        if (TextUtils.isEmpty(html) || TextUtils.isEmpty(pid)) return null
+        try {
+            var m = Pattern.compile("formhash=([0-9a-zA-Z]+)[^\"'<>]{0,200}?pid=" + pid).matcher(html!!)
+            if (m.find()) return m.group(1)
+            m = Pattern.compile("pid=" + pid + "[^\"'<>]{0,200}?formhash=([0-9a-zA-Z]+)").matcher(html)
+            if (m.find()) return m.group(1)
+        } catch (ignored: Exception) {
+        }
+        return null
+    }
+
+    
+    private fun showReplyActionMenu(item: ReplyItem?) {
+        if (item == null) return
+        val author = if (TextUtils.isEmpty(item.author)) "匿名" else item.author
+        val dialog = Dialog(this)
+        dialog.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE)
+        val content = layoutInflater.inflate(R.layout.dialog_action_menu, null)
+        dialog.setContentView(content)
+        val win = dialog.window
+        if (win != null) {
+            win.setBackgroundDrawable(ColorDrawable(0))
+            val lp = win.attributes
+            lp.width = (resources.displayMetrics.widthPixels * 0.86f).toInt()
+            win.attributes = lp
+        }
+        val tvMenuTitle = content.findViewById<TextView>(R.id.tv_menu_title)
+        tvMenuTitle.text = "$author · 评论操作"
+        val container = content.findViewById<LinearLayout>(R.id.ll_menu_items)
+
+        addActionRow(container, R.drawable.ic_reply, "回复", false, {
+            currentReplyPid = item.pid ?: ""
+            currentReplyTarget = "回复 $author："
+            showReplyBottomSheet("")
+        }, dialog)
+        addActionRow(container, R.drawable.ic_copy, "复制", false, {
+            copyReplyContent(item)
+        }, dialog)
+        if (!isOwnReply(item)) {
+            addActionRow(container, R.drawable.ic_reward, "打赏", false, {
+                rewardTargetPid = item.pid ?: ""
+                rewardTargetName = author!!
+                rewardTargetAvatar = item.avatarUrl ?: ""
+                showRewardDialog()
+            }, dialog)
+            addActionRow(container, R.drawable.ic_flag, "举报", false, {
+                reportPost(item.pid)
+            }, dialog)
+        } else {
+            addActionRow(container, R.drawable.ic_edit, "编辑", false, {
+                editReply(item)
+            }, dialog)
+            addActionRow(container, R.drawable.ic_delete, "删除", true, {
+                confirmDeleteReply(item)
+            }, dialog)
+        }
+        addActionRow(container, 0, "取消", false, null, dialog)
+        dialog.show()
+    }
+
+    
+    private fun addActionRow(
+        container: LinearLayout, iconRes: Int, label: String,
+        danger: Boolean, action: (() -> Unit)?, dialog: Dialog
+    ) {
+        val row = layoutInflater.inflate(R.layout.item_action_menu, container, false)
+        val iv = row.findViewById<ImageView>(R.id.iv_action_icon)
+        val tv = row.findViewById<TextView>(R.id.tv_action_label)
+        if (iconRes != 0) {
+            iv.setImageResource(iconRes)
+            if (danger) iv.setColorFilter(0xFFE53935.toInt())
+        } else {
+            iv.visibility = View.GONE
+        }
+        tv.text = label
+        if (danger) tv.setTextColor(0xFFE53935.toInt())
+        row.setOnClickListener {
+            dialog.dismiss()
+            action?.invoke()
+        }
+        container.addView(row)
+    }
+
+    private fun isOwnReply(item: ReplyItem?): Boolean {
+        if (item == null) return false
+        val myUid = loginUid()
+        val uid = item.authorUid
+        if (!TextUtils.isEmpty(myUid) && !TextUtils.isEmpty(uid)) return myUid == uid
+        
+        
+        val myName = UserSessionManager.getInstance().getUsername(applicationContext)
+        val name = item.author
+        return !TextUtils.isEmpty(myName) && !TextUtils.isEmpty(name) && myName == name
+    }
+
+    
+    private fun copyReplyContent(item: ReplyItem?) {
+        if (item == null) return
+        var text = item.contentText?.trim() ?: ""
+        if (text.isEmpty() && !TextUtils.isEmpty(item.contentHtml)) {
+            text = stripContentHtml(item.contentHtml).trim()
+        }
+        if (text.isEmpty()) {
+            Toast.makeText(this, "无可复制内容", Toast.LENGTH_SHORT).show()
+            return
+        }
+        val cm = getSystemService(Context.CLIPBOARD_SERVICE) as? android.content.ClipboardManager
+        cm?.setPrimaryClip(android.content.ClipData.newPlainText("回复内容", text))
+        Toast.makeText(this, "已复制回复内容", Toast.LENGTH_SHORT).show()
+    }
+
+    
+
+
+
+    private fun editReply(item: ReplyItem?) {
+        if (item == null) return
+        if (!httpClient.isLoggedIn()) {
+            promptLogin()
+            return
+        }
+        if (TextUtils.isEmpty(item.pid)) {
+            Toast.makeText(this, "缺少回复编号，无法编辑", Toast.LENGTH_SHORT).show()
+            return
+        }
+        editingReplyPid = item.pid ?: ""
+        editingReplyItem = item
+        editFormhash = ""
+        editDraftTouched = false
+        editOriginalMessage = stripReplyReplyPrefix(item)
+        
+        showReplyBottomSheet(null)
+        enterReplyEditUi()
+        fetchReplyEditSource(item.pid ?: "")
+    }
+
+    
+    private fun stripReplyReplyPrefix(item: ReplyItem): String {
+        var t = item.contentText?.trim() ?: ""
+        if (t.isEmpty() && !TextUtils.isEmpty(item.contentHtml)) {
+            t = stripContentHtml(item.contentHtml).trim()
+        }
+        return t.replace(Regex("^回复\\s*@?[^：:]{0,30}[：:]\\s*"), "").trim()
+    }
+
+    
+    private fun enterReplyEditUi() {
+        mTvReplyTarget?.text = "编辑该评论"
+        mTvReplyTarget?.visibility = View.VISIBLE
+        mBtnSendReply?.text = "保存修改"
+        val et = mEtReplyDialog ?: return
+        editPrefilling = true
+        et.setText(editOriginalMessage)
+        et.setSelection(et.text?.length ?: 0)
+        editPrefilling = false
+    }
+
+    
+    private fun exitReplyEditUi() {
+        editingReplyPid = ""
+        editingReplyItem = null
+        editOriginalMessage = ""
+        editFormhash = ""
+        editDraftTouched = false
+        mBtnSendReply?.text = "发表回复"
+    }
+
+    
+
+
+
+    private fun fetchReplyEditSource(pid: String) {
+        java.lang.Thread {
+            try {
+                val url = HttpClient.BASE_URL + "forum.php?mod=post&action=edit&tid=" + tid +
+                        "&pid=" + pid + "&mobile=2"
+                val html = httpClient.get(url)
+                var source = ""
+                var fh: String? = ""
+                if (!TextUtils.isEmpty(html)) {
+                    val doc = Jsoup.parse(html)
+                    val ta = doc.selectFirst("textarea[name=message]")
+                    if (ta != null) source = ta.text()
+                    fh = ForumParser.parseFormhash(html)
+                    if (TextUtils.isEmpty(source)) {
+                        
+                        val ta2 = doc.selectFirst("textarea#e")
+                        if (ta2 != null) source = ta2.text()
+                    }
+                }
+                val finalSource = source
+                val finalFh = fh
+                runOnUiThread {
+                    if (editingReplyPid != pid) return@runOnUiThread
+                    if (!TextUtils.isEmpty(finalFh)) editFormhash = finalFh!!
+                    if (TextUtils.isEmpty(finalSource)) {
+                        Toast.makeText(this, "未能获取原文，直接保存可能丢失排版", Toast.LENGTH_LONG).show()
+                        return@runOnUiThread
+                    }
+                    
+                    if (editDraftTouched) return@runOnUiThread
+                    editOriginalMessage = finalSource
+                    val et = mEtReplyDialog ?: return@runOnUiThread
+                    editPrefilling = true
+                    et.setText(finalSource)
+                    et.setSelection(et.text?.length ?: 0)
+                    editPrefilling = false
+                }
+            } catch (e: Exception) {
+                runOnUiThread {
+                    if (editingReplyPid == pid) {
+                        Toast.makeText(
+                            this@ThreadDetailActivity,
+                            "未能获取原文：" + (if (TextUtils.isEmpty(e.message)) "网络异常" else e.message),
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    }
+                }
+            }
+        }.start()
+    }
+
+    
+    private fun attemptEditReply(message: String) {
+        val pid = editingReplyPid
+        if (TextUtils.isEmpty(pid)) return
+        java.lang.Thread {
+            try {
+                var fh: String? = editFormhash
+                if (TextUtils.isEmpty(fh)) {
+                    val form = httpClient.get(
+                        HttpClient.BASE_URL + "forum.php?mod=post&action=edit&tid=" + tid +
+                                "&pid=" + pid + "&mobile=2"
+                    )
+                    fh = ForumParser.parseFormhash(form)
+                }
+                if (TextUtils.isEmpty(fh)) fh = postDetail?.formhash
+                if (TextUtils.isEmpty(fh)) {
+                    runOnUiThread { showReplyFailure("获取安全验证失败，请重试") }
+                    return@Thread
+                }
+                val params = HashMap<String, String>()
+                params["formhash"] = fh!!
+                params["subject"] = ""
+                params["message"] = message
+                params["editsubmit"] = "yes"
+                synchronized(pendingUploadAids) {
+                    for (aid in pendingUploadAids) {
+                        if (!TextUtils.isEmpty(aid)) params["attachnew[" + aid + "][description]"] = ""
+                    }
+                }
+                val url = HttpClient.BASE_URL + "forum.php?mod=post&action=edit&extra=&editsubmit=yes&mobile=2" +
+                        "&handlekey=editform&tid=" + tid + "&pid=" + pid + "&page=1"
+                val resp = httpClient.post(url, params)
+                val ok = !TextUtils.isEmpty(resp) && !ForumParser.isLoginPage(resp)
+                        && (resp!!.contains("viewthread") || resp.contains("thread-" + tid)
+                        || resp.contains("成功") || resp.contains("回复"))
+                runOnUiThread {
+                    if (ok) {
+                        Toast.makeText(this, "已保存修改", Toast.LENGTH_SHORT).show()
+                        hideReplyPanel()
+                        refreshPostDetail()
+                    } else {
+                        showReplyFailure("保存失败，请稍后重试")
+                    }
+                }
+            } catch (e: Exception) {
+                runOnUiThread {
+                    showReplyFailure("保存失败：" + (if (TextUtils.isEmpty(e.message)) "网络异常" else e.message))
+                }
+            }
+        }.start()
+    }
+
+    private fun confirmDeleteReply(item: ReplyItem?) {
+        AlertDialog.Builder(this)
+            .setTitle("删除回复")
+            .setMessage("确定要删除这条回复吗？删除后无法恢复。")
+            .setPositiveButton("删除") { _, _ -> deleteReply(item) }
+            .setNegativeButton("取消", null)
+            .show()
+    }
+
+    
+
+    private fun showEmojiPanel() {
+        
+        val iconIds = intArrayOf(
+            R.drawable.ic_smile, R.drawable.ic_heart, R.drawable.ic_thumbs_up,
+            R.drawable.ic_fire, R.drawable.ic_star_filled, R.drawable.ic_check,
+            R.drawable.ic_cross, R.drawable.ic_lightbulb, R.drawable.ic_pin
+        )
+        val labels = arrayOf("微笑", "爱心", "点赞", "火热", "收藏", "同意", "反对", "想法", "置顶")
+        val dp4 = dpToPx(4)
+        val dp8 = dpToPx(8)
+        val rvEmoji = RecyclerView(this)
+        rvEmoji.layoutManager = GridLayoutManager(this, 5)
+        rvEmoji.adapter = object : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
+            @NonNull
+            override fun onCreateViewHolder(@NonNull parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder {
+                val ll = LinearLayout(parent.context)
+                ll.orientation = LinearLayout.VERTICAL
+                ll.gravity = Gravity.CENTER
+                ll.setPadding(dp8, dp8, dp8, dp8)
+                val size = dpToPx(48)
+                ll.layoutParams = RecyclerView.LayoutParams(size, size)
+
+                val iv = ImageView(parent.context)
+                iv.layoutParams = LinearLayout.LayoutParams(dpToPx(28), dpToPx(28))
+                iv.scaleType = ImageView.ScaleType.FIT_CENTER
+                iv.id = View.generateViewId()
+                ll.addView(iv)
+
+                val tv = TextView(parent.context)
+                tv.textSize = 9f
+                tv.setTextColor(0xFF9CA3AF.toInt())
+                tv.gravity = Gravity.CENTER
+                tv.maxLines = 1
+                tv.id = View.generateViewId()
+                ll.addView(tv)
+
+                return object : RecyclerView.ViewHolder(ll) {}
+            }
+
+            override fun onBindViewHolder(@NonNull holder: RecyclerView.ViewHolder, position: Int) {
+                val ll = holder.itemView as LinearLayout
+                val iv = ll.getChildAt(0) as ImageView
+                val tv = ll.getChildAt(1) as TextView
+                iv.setImageResource(iconIds[position])
+                tv.text = labels[position]
+                ll.setOnClickListener {
+                    val pos = binding.etReply.selectionStart
+                    val text = binding.etReply.text.toString()
+                    val tag = "[" + labels[position] + "]"
+                    binding.etReply.setText(text.substring(0, pos) + tag + text.substring(pos))
+                    binding.etReply.setSelection(pos + tag.length)
+                }
+            }
+
+            override fun getItemCount(): Int {
+                return iconIds.size
+            }
+        }
+        val popup = PopupWindow(rvEmoji, ViewGroup.LayoutParams.MATCH_PARENT, dpToPx(160), true)
+        popup.setBackgroundDrawable(ColorDrawable(getColor(R.color.background_primary)))
+        popup.isOutsideTouchable = true
+        popup.elevation = dpToPx(8).toFloat()
+        popup.showAtLocation(binding.root, Gravity.BOTTOM, 0, 0)
+    }
+
+    
+
+    
+    private fun createInlineImageGetter(textView: TextView): Html.ImageGetter {
+        return Html.ImageGetter { source ->
+            val imgUrl = sanitizeImageUrl(source)
+            val tv = textView
+            val isSmiley = isSmileyOrIcon(imgUrl)
+            if (isSmiley) {
+                val emojiSize = dpToPx(24)
+                val placeholder = UrlDrawable(tv, emojiSize)
+                placeholder.setBounds(0, 0, emojiSize, emojiSize)
+                Glide.with(this)
+                    .load(imgUrl)
+                    .into(object : com.bumptech.glide.request.target.CustomTarget<Drawable?>() {
+                        override fun onResourceReady(
+                            resource: Drawable,
+                            transition: com.bumptech.glide.request.transition.Transition<in Drawable?>?
+                        ) {
+                            resource.setBounds(0, 0, emojiSize, emojiSize)
+                            placeholder.setBounds(0, 0, emojiSize, emojiSize)
+                            placeholder.setReal(resource, tv)
+                        }
+
+                        override fun onLoadCleared(ph: Drawable?) {}
+                    })
+                placeholder
+            } else {
+                
+                
+                val textWidth = if (tv.width > 0) tv.width - tv.paddingLeft - tv.paddingRight
+                else resources.displayMetrics.widthPixels
+                val maxW = maxOf(
+                    dpToPx(160),
+                    minOf((textWidth * 0.9f).toInt(), (resources.displayMetrics.widthPixels * 0.78f).toInt())
+                )
+                val maxH = (maxW * 1.25f).toInt()
+                val radius = dpToPx(10).toFloat()
+                val placeholder = UrlDrawable(tv, maxW)
+                placeholder.setBounds(0, 0, maxW, dpToPx(120))
+
+                Glide.with(this)
+                    .load(imgUrl)
+                    .into(object : com.bumptech.glide.request.target.CustomTarget<Drawable?>() {
+                        override fun onResourceReady(
+                            resource: Drawable,
+                            transition: com.bumptech.glide.request.transition.Transition<in Drawable?>?
+                        ) {
+                            val srcW = resource.intrinsicWidth
+                            val srcH = resource.intrinsicHeight
+                            var finalW: Int
+                            var finalH: Int
+                            if (srcW > 0 && srcH > 0) {
+                                if (srcW >= maxW) {
+                                    finalW = maxW
+                                    finalH = (srcH.toLong() * maxW / srcW).toInt()
+                                } else if (srcW < dpToPx(100)) {
+                                    finalW = srcW
+                                    finalH = srcH
+                                } else {
+                                    finalW = maxW
+                                    finalH = (srcH.toLong() * maxW / srcW).toInt()
+                                }
+                                
+                                if (finalH > maxH) {
+                                    finalH = maxH
+                                    finalW = (srcW.toLong() * maxH / srcH).toInt().coerceAtMost(maxW)
+                                }
+                            } else {
+                                finalW = maxW
+                                finalH = maxH
+                            }
+                            val strokeWidth = dpToPx(1).toFloat()
+                            val strokeColor = getColor(R.color.image_placeholder_stroke)
+                            val rounded = RoundedImageDrawable(resource, radius, strokeWidth, strokeColor)
+                            rounded.setBounds(0, 0, finalW, finalH)
+                            placeholder.setBounds(0, 0, finalW, finalH)
+                            placeholder.setReal(rounded, tv)
+                        }
+
+                        override fun onLoadCleared(ph: Drawable?) {}
+                    })
+                placeholder
+            }
+        }
+    }
+
+    
+    private fun safeFromHtml(html: String?, imageGetter: Html.ImageGetter, tagHandler: Html.TagHandler?): Spanned {
+        if (TextUtils.isEmpty(html)) {
+            return SpannedStringValueOf("")
+        }
+        val clean = BBCodeUtil.stripHtmlColors(html)
+        val rawSpanned: Spanned = try {
+            Html.fromHtml(clean, Html.FROM_HTML_MODE_LEGACY, imageGetter, tagHandler)
+        } catch (e: Exception) {
+            android.util.Log.w("ThreadDetail", "Html.fromHtml failed, retrying with COMPACT mode", e)
+            try {
+                Html.fromHtml(clean, Html.FROM_HTML_MODE_COMPACT, imageGetter, tagHandler)
+            } catch (e2: Exception) {
+                android.util.Log.w("ThreadDetail", "Html.fromHtml COMPACT also failed, stripping paragraph tags", e2)
+                
+                var stripped = Regex("<div[^>]*>").replace(clean, "")
+                stripped = Regex("</div>").replace(stripped, "<br>")
+                stripped = Regex("<p[^>]*>").replace(stripped, "")
+                stripped = Regex("</p>").replace(stripped, "<br>")
+                stripped = Regex("<li[^>]*>").replace(stripped, "• ")
+                stripped = Regex("</li>").replace(stripped, "<br>")
+                stripped = Regex("<ol[^>]*>").replace(stripped, "")
+                stripped = Regex("</ol>").replace(stripped, "")
+                stripped = Regex("<ul[^>]*>").replace(stripped, "")
+                stripped = Regex("</ul>").replace(stripped, "")
+                try {
+                    Html.fromHtml(stripped, Html.FROM_HTML_MODE_LEGACY, imageGetter, tagHandler)
+                } catch (e3: Exception) {
+                    android.util.Log.e("ThreadDetail", "All Html.fromHtml attempts failed", e3)
+                    SpannedStringValueOf(Html.fromHtml(TextUtils.htmlEncode(clean)).toString())
+                }
+            }
+        }
+        val processed = BBCodeUtil.stripForegroundColorSpans(rawSpanned)
+        val finalSpanned = (processed as? Spanned) ?: rawSpanned
+        return trimSpanned(finalSpanned)
+    }
+
+    private fun trimSpanned(spanned: CharSequence): Spanned {
+        var start = 0
+        var end = spanned.length
+        while (start < end && (spanned[start].isWhitespace() || spanned[start] == '\u00A0')) {
+            start++
+        }
+        while (end > start && (spanned[end - 1].isWhitespace() || spanned[end - 1] == '\u00A0')) {
+            end--
+        }
+        val sub = if (start == 0 && end == spanned.length) {
+            spanned
+        } else {
+            spanned.subSequence(start, end)
+        }
+        return if (sub is Spanned) sub else SpannedStringValueOf(sub.toString())
+    }
+
+    private fun SpannedStringValueOf(s: String): Spanned {
+        return android.text.SpannedString(s)
+    }
+
+    private fun setupClickableLinks(textView: TextView?) {
+        if (textView == null) {
+            return
+        }
+        textView.setTextIsSelectable(true)
+        textView.isFocusable = true
+        textView.isClickable = true
+        textView.isLongClickable = true
+        textView.highlightColor = 857839347
+        val value = textView.text
+        val spannable: Spannable
+        if (value is Spannable) {
+            spannable = value
+        } else {
+            spannable = SpannableString(value ?: "")
+            textView.setText(spannable, TextView.BufferType.SPANNABLE)
+        }
+        val linkColor = com.solosu.mtforum.util.ThemeManager.getThemeColor(this)
+        val urlPattern = Pattern.compile(
+            "(?<!\\w)(?:https?://[^\\s<>\"\\x00-\\x1f\\x7f-\\xff]+|www\\.[^\\s<>\"\\x00-\\x1f\\x7f-\\xff]+)(?<![,.;:!?)>])",
+            Pattern.CASE_INSENSITIVE or Pattern.MULTILINE
+        )
+        FixNestedScrollLinkMovementMethod.matcherLinkify(
+            spannable, urlPattern,
+            { url -> canonicalizeUrl(url) ?: url },
+            { url -> openLink(url) },
+            linkColor
+        )
+        val urlSpans = spannable.getSpans(0, spannable.length, URLSpan::class.java)
+        for (oldSpan in urlSpans) {
+            val targetUrl = canonicalizeUrl(oldSpan.url)
+            val start = spannable.getSpanStart(oldSpan)
+            val end = spannable.getSpanEnd(oldSpan)
+            val flags = spannable.getSpanFlags(oldSpan)
+            val spanText = spannable.subSequence(start, end).toString().trim()
+            val isReplyLink = spanText == "回复" ||
+                    (targetUrl != null && (targetUrl.contains("action=reply") || targetUrl.contains("mod=post")) && spanText.contains("回复"))
+            spannable.removeSpan(oldSpan)
+            if (start >= 0 && end > start) {
+                if (isReplyLink) {
+                    spannable.setSpan(object : ClickableSpan() {
+                        override fun onClick(widget: View) {
+                            showReplyBottomSheet(currentReplyTarget)
+                        }
+
+                        override fun updateDrawState(ds: TextPaint) {
+                            ds.color = linkColor
+                            ds.isUnderlineText = true
+                        }
+                    }, start, end, flags)
+                } else if (!TextUtils.isEmpty(targetUrl)) {
+                    spannable.setSpan(object : ClickableSpan() {
+                        override fun onClick(widget: View) {
+                            openLink(targetUrl)
+                        }
+
+                        override fun updateDrawState(ds: TextPaint) {
+                            ds.color = linkColor
+                            ds.isUnderlineText = true
+                        }
+                    }, start, end, flags)
+                }
+            }
+        }
+        
+        val fullStr = spannable.toString()
+        val replyKeywords = arrayOf("如果您要查看本帖隐藏内容请回复", "要查看本帖隐藏内容请回复", "隐藏内容请回复")
+        for (kw in replyKeywords) {
+            var index = fullStr.indexOf(kw)
+            while (index >= 0) {
+                val replyStart = index + kw.lastIndexOf("回复")
+                val replyEnd = replyStart + 2
+                val existingSpans = spannable.getSpans(replyStart, replyEnd, ClickableSpan::class.java)
+                if (existingSpans.isEmpty()) {
+                    spannable.setSpan(object : ClickableSpan() {
+                        override fun onClick(widget: View) {
+                            showReplyBottomSheet(currentReplyTarget)
+                        }
+
+                        override fun updateDrawState(ds: TextPaint) {
+                            ds.color = linkColor
+                            ds.isUnderlineText = true
+                        }
+                    }, replyStart, replyEnd, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                }
+                index = fullStr.indexOf(kw, index + kw.length)
+            }
+        }
+        
+        val imageSpans = spannable.getSpans(0, spannable.length, ImageSpan::class.java)
+        for (imgSpan in imageSpans) {
+            val src = imgSpan.source
+            if (!TextUtils.isEmpty(src) && !isSmileyOrIcon(src!!)) {
+                val start = spannable.getSpanStart(imgSpan)
+                val end = spannable.getSpanEnd(imgSpan)
+                if (start >= 0 && end > start) {
+                    spannable.setSpan(object : ClickableSpan() {
+                        override fun onClick(widget: View) {
+                            openImagePreview(src)
+                        }
+
+                        override fun updateDrawState(ds: TextPaint) {
+                            ds.isUnderlineText = false
+                        }
+                    }, start, end, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                }
+            }
+        }
+        textView.movementMethod = SelectableLinkMovementMethod()
+        textView.autoLinkMask = 0
+    }
+
+    private fun canonicalizeUrl(url: String?): String? {
+        if (TextUtils.isEmpty(url)) {
+            return url
+        }
+        if (url!!.startsWith("//")) {
+            return "https:$url"
+        }
+        if (url.startsWith("/")) {
+            return HttpClient.BASE_URL + url.substring(1)
+        }
+        if (url.startsWith("./")) {
+            return HttpClient.BASE_URL + url.substring(2)
+        }
+        if (url.startsWith("http://") || url.startsWith("https://")) {
+            return url
+        }
+        if (url.startsWith("www.")) {
+            
+            return "https://$url"
+        }
+        return HttpClient.BASE_URL + url
+    }
+
+    private fun openLink(url: String?) {
+        if (TextUtils.isEmpty(url)) {
+            return
+        }
+        try {
+            val lower = url!!.lowercase(Locale.ROOT)
+            if (lower.contains("action=reply") || lower.contains("mod=post&action=reply")) {
+                showReplyBottomSheet(currentReplyTarget)
+                return
+            }
+            val isForumLink = lower.contains("bbs.binmt.cc")
+
+            if (isForumLink) {
+                
+                var m = Pattern.compile("thread[-=]?(\\d+)").matcher(lower)
+                if (m.find()) {
+                    NavigationHelper.openThread(this, m.group(1))
+                    return
+                }
+
+                
+                m = Pattern.compile("(?:forum-|(?<=[?&])fid=)(\\d+)").matcher(lower)
+                if (m.find()) {
+                    Toast.makeText(this, "论坛分区链接", Toast.LENGTH_SHORT).show()
+                    startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+                    return
+                }
+
+                
+                m = Pattern.compile("(?:uid[-=]|(?<=[?&])uid=)(\\d+)").matcher(lower)
+                if (m.find()) {
+                    val intent = Intent(this, UserProfileActivity::class.java)
+                    intent.putExtra("uid", m.group(1))
+                    startActivity(intent)
+                    return
+                }
+                m = Pattern.compile("space-username-([^./?&]+)").matcher(lower)
+                if (m.find()) {
+                    val intent = Intent(this, UserProfileActivity::class.java)
+                    intent.putExtra("username", m.group(1))
+                    startActivity(intent)
+                    return
+                }
+            }
+
+            
+            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+        } catch (e: Exception) {
+            Toast.makeText(this, "没有可用的浏览器", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun isValidUploadUid(uid: String?): Boolean {
+        if (TextUtils.isEmpty(uid)) {
+            return false
+        }
+        try {
+            return uid!!.toLong() > 0
+        } catch (e: NumberFormatException) {
+            return false
+        }
+    }
+
+    
+
+
+
+    private fun firstNonEmptyAttr(element: Element, vararg names: String): String? {
+        for (name in names) {
+            if (element.hasAttr(name)) {
+                val value = element.attr(name)
+                if (!TextUtils.isEmpty(value)) return value.trim()
+            }
+        }
+        return null
+    }
+
+    private fun isSmileyOrIcon(url: String): Boolean {
+        val lower = url.lowercase(Locale.ROOT)
+        return lower.contains("smiley") || lower.contains("emoticon")
+                || lower.contains("face") || lower.contains("/static/image/smiley")
+                || lower.contains("stamp") || lower.contains("magic")
+                || lower.contains("mini") || lower.contains("icon")
+                || lower.contains("common_")
+    }
+
+    private fun extractAndSeparateImages(html: String?, imageUrls: MutableList<String>): String {
+        if (TextUtils.isEmpty(html)) {
+            return ""
+        }
+        try {
+            val doc = Jsoup.parseBodyFragment(html!!)
+            doc.select("script").remove()
+            doc.select("style").remove()
+            
+            for (ignoreOp in doc.select("ignore_js_op")) {
+                ignoreOp.unwrap()
+            }
+            val imgs = doc.select("img")
+            for (img in imgs) {
+                val realUrl: String? = firstNonEmptyAttr(
+                    img,
+                    "zoomfile", "file", "comiis_loadimages", "data-original", "data-src",
+                    "data-file", "data-lazy-src", "src"
+                )
+                if (!TextUtils.isEmpty(realUrl)) {
+                    val fullUrl = normalizeImageUrl(realUrl)
+                    if (fullUrl != null && !fullUrl.contains("none.gif") && !fullUrl.contains("blank.gif")) {
+                        if (!isSmileyOrIcon(fullUrl) && !imageUrls.contains(fullUrl)) {
+                            imageUrls.add(fullUrl)
+                        }
+                        
+                        val attrKeys = ArrayList<String>()
+                        for (a in img.attributes()) {
+                            attrKeys.add(a.key)
+                        }
+                        for (k in attrKeys) {
+                            img.removeAttr(k)
+                        }
+                        img.attr("src", fullUrl)
+                        continue
+                    }
+                }
+                
+                img.remove()
+            }
+            val cleanedText = doc.body().html()
+            var out = Regex("(?i)replyreload\\s*\\+?\\s*='[^']*'").replace(cleanedText, "")
+            out = Regex("(?i)replyreload\\s*\\+?\\s*=\"[^\"]*\"").replace(out, "")
+            out = Regex("(?i)replyreload\\s*\\+?\\s*=[^;\\s<]+").replace(out, "")
+            return out
+        } catch (e: Exception) {
+            return fallbackExtractImages(html!!, imageUrls)
+        }
+    }
+
+    private fun fallbackExtractImages(html: String, imageUrls: MutableList<String>): String {
+        var cleaned = Regex("(?i)<script[^>]*>.*?</script>").replace(html, "")
+        cleaned = Regex("(?i)<style[^>]*>.*?</style>").replace(cleaned, "")
+        
+        val imgPattern = Pattern.compile("<img\\b[^>]*>", Pattern.CASE_INSENSITIVE)
+        val attrPattern = Pattern.compile(
+            "(?:zoomfile|file|comiis_loadimages|data-original|data-src|data-file|data-lazy-src|src)\\s*=\\s*['\"]([^'\"]+)['\"]",
+            Pattern.CASE_INSENSITIVE
+        )
+        val matcher = imgPattern.matcher(cleaned)
+        val sb = StringBuffer()
+        while (matcher.find()) {
+            val tag = matcher.group(0)
+            val attrMatcher = attrPattern.matcher(tag)
+            var chosenUrl: String? = null
+            while (attrMatcher.find()) {
+                val candidate = attrMatcher.group(1)
+                val fullCandidate = normalizeImageUrl(candidate)
+                if (fullCandidate != null && !fullCandidate.contains("none.gif") && !fullCandidate.contains("blank.gif")) {
+                    chosenUrl = fullCandidate
+                    break
+                }
+            }
+            if (chosenUrl != null) {
+                if (!isSmileyOrIcon(chosenUrl) && !imageUrls.contains(chosenUrl)) {
+                    imageUrls.add(chosenUrl)
+                }
+                matcher.appendReplacement(sb, Matcher.quoteReplacement("<img src=\"$chosenUrl\">"))
+            } else {
+                matcher.appendReplacement(sb, "")
+            }
+        }
+        matcher.appendTail(sb)
+        return sb.toString()
+    }
+
+    private fun normalizeImageUrl(url: String?): String? {
+        if (TextUtils.isEmpty(url)) {
+            return null
+        }
+        if (url!!.startsWith("//")) {
+            return "https:$url"
+        }
+        if (url.startsWith("/")) {
+            return HttpClient.BASE_URL + url.substring(1)
+        }
+        if (url.startsWith("./")) {
+            return HttpClient.BASE_URL + url.substring(2)
+        }
+        if (url.startsWith("http://") || url.startsWith("https://")) {
+            return url
+        }
+        return HttpClient.BASE_URL + url
+    }
+
+    override fun onDestroy() {
+        hideReplyPanel()
+        super.onDestroy()
+    }
+
+    private fun dpToPx(dp: Int): Int {
+        return ((dp * resources.displayMetrics.density) + 0.5f).toInt()
+    }
+
+    companion object {
+        private const val HIDDEN_QUOTE_PLACEHOLDER = "\ue000\ue001\ue002\ue003"
+        private const val KEY_FAVORITED_PREFIX = "fav_"
+        private const val KEY_LIKED_PREFIX = "liked_"
+        private const val PREF_LIKE_FAV = "thread_like_fav_state"
+        private const val REQUEST_IMAGE_PICK = 1002
+        private const val REQUEST_EDIT_THREAD = 1003 
+
+        
+        private const val INSERT_LINK = 1
+        private const val INSERT_IMAGE = 2
+        private const val INSERT_AUDIO = 3
+        private const val INSERT_VIDEO = 4
+        private const val INSERT_FLASH = 5
+        private const val INSERT_QUOTE = 6
+        private const val INSERT_CODE = 7
+        private const val INSERT_FREE = 8
+        private const val INSERT_HIDE = 9
+
+        
+        private const val MAX_PREFETCH_PAGES = 3
+
+        
+        private const val AUTO_LOAD_THRESHOLD = 5
+
+        
+        private const val LOAD_PAGE_BATCH = 3
+
+        
+        private const val REPLIES_PER_PAGE = 20
+    }
+
+    
+
+    private fun stripPostRedundantElements(rawHtml: String): String {
+        if (rawHtml.isEmpty()) return ""
+        try {
+            val doc = Jsoup.parseBodyFragment(rawHtml)
+            doc.select(
+                "div.comiis_rate, div[class*=comiis_rate], " +
+                "div.comiis_praise, div[class*=praise], " +
+                "ul.comiis_recommend_list_a, ul.comiis_recommend_list_t, ul[class*=recommend_list], " +
+                "em.comiis_recommend_num, a.comiis_recommend_addkey, " +
+                "div.comiis_favshare, div[class*=favshare], a.followmod, " +
+                "div.comiis_postli_time, div.manage, div.modact"
+            ).remove()
+            return stripLeadingHtmlBreak(doc.body().html())
+        } catch (_: Exception) {
+            return stripLeadingHtmlBreak(rawHtml)
+        }
+    }
+
+    private fun separateInlineImagesFromText(html: String): String {
+        if (TextUtils.isEmpty(html) || !html.contains("<img", ignoreCase = true)) return html
+        val blockDelimiter = Regex(
+            "(?i)</?(?:br|p|div|li|tr|td|th|table|h[1-6]|blockquote|pre|ul|ol|center|dl|dt|dd|figure|section|article)\\b[^>]*>"
+        )
+        val imgPattern = Regex("(?i)<img\\b[^>]*>")
+        val srcPattern = Regex("(?i)src=[\"']([^\"']+)[\"']")
+        val tagPattern = Regex("<[^>]+>")
+        val tableRanges = Regex("(?is)<table\\b.*?</table>").findAll(html).map { it.range }.toList()
+
+        val sb = StringBuilder(html.length + 16)
+        var cursor = 0
+        fun process(segment: String, segStart: Int) {
+            val segEnd = segStart + segment.length
+            val inTable = tableRanges.any { it.first < segEnd && segStart <= it.last }
+            if (inTable || !segment.contains("<img", ignoreCase = true)) {
+                sb.append(segment)
+                return
+            }
+            var last = 0
+            for (img in imgPattern.findAll(segment)) {
+                val url = srcPattern.find(img.value)?.groupValues?.get(1) ?: ""
+                if (url.isEmpty() || isSmileyOrIcon(url)) continue
+                val before = segment.substring(0, img.range.first)
+                    .replace(tagPattern, "").replace("&nbsp;", " ").isNotBlank()
+                val after = segment.substring(img.range.last + 1)
+                    .replace(tagPattern, "").replace("&nbsp;", " ").isNotBlank()
+                if (!before && !after) continue
+                sb.append(segment, last, img.range.first)
+                if (before) sb.append("<br>")
+                sb.append(img.value)
+                if (after) sb.append("<br>")
+                last = img.range.last + 1
+            }
+            sb.append(segment, last, segment.length)
+        }
+        for (d in blockDelimiter.findAll(html)) {
+            process(html.substring(cursor, d.range.first), cursor)
+            sb.append(d.value)
+            cursor = d.range.last + 1
+        }
+        process(html.substring(cursor), cursor)
+        return sb.toString()
+    }
+
+    private fun groupContinuousImages(html: String): String {
+        if (TextUtils.isEmpty(html)) return ""
+        val imgPattern = Pattern.compile("(?i)<img\\b[^>]*src=[\"']([^\"']+)[\"'][^>]*>")
+        val m = imgPattern.matcher(html)
+        class ImgMatch(val src: String, val start: Int, val end: Int)
+        val matches = ArrayList<ImgMatch>()
+        while (m.find()) {
+            val raw = m.group(1) ?: continue
+            val src = sanitizeImageUrl(raw)
+            if (src.isNotEmpty() && !isSmileyOrIcon(src)) {
+                matches.add(ImgMatch(src, m.start(), m.end()))
+            }
+        }
+        if (matches.size < 2) return html
+
+        fun isContinuous(between: String): Boolean {
+            if (Pattern.compile("(?i)<(?:table|customquote|blockquote|pre|hr|a\\b)").matcher(between).find()) {
+                return false
+            }
+            if (Pattern.compile("(?i)<img\\b").matcher(between).find()) {
+                return false
+            }
+            val stripped = between.replace(Regex("<[^>]+>"), "")
+                .replace("&nbsp;", "")
+                .replace("&#160;", "")
+                .replace("&ensp;", "")
+                .replace("&emsp;", "")
+                .trim()
+            return stripped.isEmpty()
+        }
+
+        val groups = ArrayList<List<ImgMatch>>()
+        var currentGroup = ArrayList<ImgMatch>()
+        currentGroup.add(matches[0])
+
+        for (i in 1 until matches.size) {
+            val prev = currentGroup.last()
+            val curr = matches[i]
+            val between = html.substring(prev.end, curr.start)
+            if (isContinuous(between)) {
+                currentGroup.add(curr)
+            } else {
+                if (currentGroup.size >= 2) {
+                    groups.add(currentGroup)
+                }
+                currentGroup = ArrayList()
+                currentGroup.add(curr)
+            }
+        }
+        if (currentGroup.size >= 2) {
+            groups.add(currentGroup)
+        }
+        if (groups.isEmpty()) return html
+
+        var result = html
+        for (i in groups.indices.reversed()) {
+            val group = groups[i]
+            val urls = group.map { it.src }
+            val joined = urls.joinToString("|")
+            val replacement = "<div class=\"continuous-image-gallery\" data-images=\"$joined\"></div>"
+            val start = group.first().start
+            val end = group.last().end
+            result = result.substring(0, start) + replacement + result.substring(end)
+        }
+        return result
+    }
+
+    private fun parseGalleryUrls(galleryHtml: String): List<String> {
+        val m = Pattern.compile("(?i)data-images=[\"']([^\"']+)[\"']").matcher(galleryHtml)
+        if (m.find()) {
+            val raw = m.group(1) ?: ""
+            return raw.split("|").map { sanitizeImageUrl(it) }.filter { it.isNotBlank() }
+        }
+        return emptyList()
+    }
+
+    private fun createGridImageGallery(imageUrls: List<String>): View {
+        val count = imageUrls.size
+        
+        val spanCount = if (count == 2 || count == 4) 2 else 3
+
+        val displayMetrics = resources.displayMetrics
+        
+        val screenW = displayMetrics.widthPixels
+        val horizontalPadding = dpToPx(32)
+        val gap = dpToPx(6)
+        val availableW = maxOf(dpToPx(240), screenW - horizontalPadding)
+
+        val cellWidth: Int
+        val cellHeight: Int
+        if (spanCount == 2) {
+            
+            cellWidth = (availableW - gap) / 2
+            
+            cellHeight = (cellWidth * 0.85f).toInt()
+        } else {
+            
+            cellWidth = (availableW - gap * 2) / 3
+            cellHeight = cellWidth
+        }
+
+        
+        val displayList = if (count > 9) imageUrls.take(9) else imageUrls
+        val overflowCount = count - 9
+
+        val rv = RecyclerView(this).apply {
+            val lp = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            ).apply {
+                topMargin = dpToPx(12)
+                bottomMargin = dpToPx(14)
+            }
+            layoutParams = lp
+            layoutManager = GridLayoutManager(this@ThreadDetailActivity, spanCount)
+            isNestedScrollingEnabled = false
+            overScrollMode = View.OVER_SCROLL_NEVER
+            setHasFixedSize(true)
+        }
+
+        class GridViewHolder(
+            val container: FrameLayout,
+            val iv: ImageView,
+            val tvMore: TextView
+        ) : RecyclerView.ViewHolder(container)
+
+        val adapter = object : RecyclerView.Adapter<GridViewHolder>() {
+            override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): GridViewHolder {
+                val frame = FrameLayout(parent.context).apply {
+                    val lp = RecyclerView.LayoutParams(cellWidth, cellHeight).apply {
+                        val margin = gap / 2
+                        setMargins(margin, margin, margin, margin)
+                    }
+                    layoutParams = lp
+                    setBackgroundResource(R.drawable.bg_post_image_rounded)
+                    foreground = androidx.core.content.ContextCompat.getDrawable(parent.context, R.drawable.bg_post_image_border_only)
+                    outlineProvider = ViewOutlineProvider.BACKGROUND
+                    clipToOutline = true
+                    isClickable = true
+                    isFocusable = true
+                }
+
+                val iv = ImageView(parent.context).apply {
+                    layoutParams = FrameLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.MATCH_PARENT
+                    )
+                    scaleType = ImageView.ScaleType.CENTER_CROP
+                }
+                frame.addView(iv)
+
+                val tvMore = TextView(parent.context).apply {
+                    layoutParams = FrameLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.MATCH_PARENT
+                    )
+                    gravity = Gravity.CENTER
+                    setBackgroundColor(0x77000000.toInt())
+                    setTextColor(0xFFFFFFFF.toInt())
+                    textSize = 18f
+                    typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+                    visibility = View.GONE
+                }
+                frame.addView(tvMore)
+
+                return GridViewHolder(frame, iv, tvMore)
+            }
+
+            override fun onBindViewHolder(holder: GridViewHolder, position: Int) {
+                val url = displayList[position]
+                Glide.with(this@ThreadDetailActivity)
+                    .load(url)
+                    .placeholder(ColorDrawable(getColor(R.color.background_secondary)))
+                    .error(ColorDrawable(getColor(R.color.divider)))
+                    .into(holder.iv)
+
+                if (overflowCount > 0 && position == 8) {
+                    holder.tvMore.visibility = View.VISIBLE
+                    holder.tvMore.text = "+$overflowCount"
+                } else {
+                    holder.tvMore.visibility = View.GONE
+                }
+
+                holder.container.setOnClickListener {
+                    openImagePreview(url)
+                }
+            }
+
+            override fun getItemCount(): Int = displayList.size
+        }
+
+        rv.adapter = adapter
+        return rv
+    }
+
+    private fun renderContentSections(displayHtml: String, hiddenNotice: String?) {
+        val hb = headerBinding ?: return
+        val container = hb.llContentContainer
+        val cleanedHtml = stripPostRedundantElements(displayHtml)
+        
+        val collapsedHtml = Regex("(?i)(?:<br\\s*/?>\\s*){2,}").replace(cleanedHtml, "<br>")
+            .replace(Regex("(?i)<p\\s*>\\s*(?:&nbsp;|&#160;|\\s)*</p>"), "")
+            .replace(Regex("(?i)(?:\\r?\\n\\s*){3,}"), "\n\n")
+        val processedHtml = separateInlineImagesFromText(groupContinuousImages(collapsedHtml))
+
+        val hasTable = processedHtml.contains("<table", ignoreCase = true)
+        val hasGallery = processedHtml.contains("continuous-image-gallery", ignoreCase = true)
+        val hasHiddenCard = processedHtml.contains("unlocked-hidden-card", ignoreCase = true)
+
+        if (!hasTable && !hasGallery && !hasHiddenCard) {
+            
+            for (i in container.childCount - 1 downTo 0) {
+                val child = container.getChildAt(i)
+                if (child !== hb.tvContent) container.removeViewAt(i)
+            }
+            hb.tvContent.visibility = View.VISIBLE
+            hb.tvContent.text = safeFromHtml(
+                processedHtml,
+                createInlineImageGetter(hb.tvContent),
+                BBCodeUtil.createTagHandler(this)
+            )
+            if (!TextUtils.isEmpty(hiddenNotice)) {
+                applyHiddenNoticeHighlight(hb.tvContent.text, hiddenNotice)
+            }
+            setupClickableLinks(hb.tvContent)
+            return
+        }
+
+        
+        
+        for (i in container.childCount - 1 downTo 0) {
+            val child = container.getChildAt(i)
+            if (child !== hb.tvContent) container.removeViewAt(i)
+        }
+        hb.tvContent.visibility = View.GONE
+
+        val p = Pattern.compile("(?is)(<table\\b.*?</table\\s*>|<div\\s+class=[\"']continuous-image-gallery[\"'][^>]*>.*?</div>|<div\\s+class=[\"']unlocked-hidden-card[\"'][^>]*>.*?</div>)")
+        val m = p.matcher(processedHtml)
+        var lastIdx = 0
+
+        fun addTextChunk(htmlChunk: String) {
+            val trimmed = htmlChunk.trim()
+            if (trimmed.isEmpty()) return
+            val tv = TextView(this)
+            tv.layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            )
+            tv.textSize = 15f
+            tv.setTextColor(getColor(R.color.text_primary))
+            tv.setLineSpacing(dpToPx(6).toFloat(), 1.0f)
+            val spanned = safeFromHtml(
+                trimmed,
+                createInlineImageGetter(tv),
+                BBCodeUtil.createTagHandler(this)
+            )
+            if (spanned.toString().trim().isEmpty()) {
+                return
+            }
+            tv.text = spanned
+            if (!TextUtils.isEmpty(hiddenNotice)) {
+                applyHiddenNoticeHighlight(tv.text, hiddenNotice)
+            }
+            setupClickableLinks(tv)
+            container.addView(tv)
+        }
+
+        while (m.find()) {
+            val textBefore = processedHtml.substring(lastIdx, m.start())
+            addTextChunk(textBefore)
+
+            val matchedBlock = m.group(1) ?: ""
+            if (matchedBlock.startsWith("<table", ignoreCase = true)) {
+                val tableCard = createTableLayoutView(matchedBlock)
+                if (tableCard != null) {
+                    container.addView(tableCard)
+                }
+            } else if (matchedBlock.contains("continuous-image-gallery", ignoreCase = true)) {
+                val urls = parseGalleryUrls(matchedBlock)
+                if (urls.isNotEmpty()) {
+                    val galleryCard = createGridImageGallery(urls)
+                    container.addView(galleryCard)
+                }
+            } else if (matchedBlock.contains("unlocked-hidden-card", ignoreCase = true)) {
+                val inner = matchedBlock.replace(Regex("(?is)^<div[^>]*>"), "").replace(Regex("(?is)</div>$"), "")
+                val card = createUnlockedHiddenCard(inner)
+                container.addView(card)
+            }
+
+            lastIdx = m.end()
+        }
+
+        val textAfter = processedHtml.substring(lastIdx)
+        addTextChunk(textAfter)
+    }
+
+    
+
+
+
+
+    private fun stripHiddenHeader(raw: String): String {
+        var s = raw.replace(Regex("(?is)^.*?本帖隐藏的内容[:：]?[\\s]*(?:<br\\s*/?>)*"), "")
+        s = stripLeadingHtmlBreak(s)
+        s = Regex("(?i)(?:<br\\s*/?>\\s*){2,}").replace(s, "<br>")
+        s = Regex("(?i)<p\\s*>\\s*(?:&nbsp;|&#160;|\\s)*</p>").replace(s, "")
+        return s
+    }
+
+    private fun createUnlockedHiddenCard(innerHtml: String): View {
+        val content = stripHiddenHeader(innerHtml)
+        val card = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            val lp = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            ).apply {
+                topMargin = dpToPx(10)
+                bottomMargin = dpToPx(12)
+            }
+            layoutParams = lp
+            val gd = android.graphics.drawable.GradientDrawable().apply {
+                setColor(getColor(R.color.background_secondary))
+                cornerRadius = dpToPx(12).toFloat()
+                setStroke(dpToPx(1), getColor(R.color.divider))
+            }
+            background = gd
+            val pad = dpToPx(12)
+            setPadding(pad, pad, pad, pad)
+        }
+
+        
+        val topRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            )
+        }
+
+        val accent = com.solosu.mtforum.util.ThemeManager.getThemeColor(this)
+
+        val ivLock = ImageView(this).apply {
+            setImageResource(R.drawable.ic_lock_outline)
+            setColorFilter(accent)
+            layoutParams = LinearLayout.LayoutParams(dpToPx(16), dpToPx(16)).apply {
+                marginEnd = dpToPx(6)
+            }
+        }
+        topRow.addView(ivLock)
+
+        val tvTitle = TextView(this).apply {
+            text = "本帖隐藏的内容"
+            textSize = 13.5f
+            typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+            setTextColor(accent)
+            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+        }
+        topRow.addView(tvTitle)
+
+        
+        val cleanContent = content.replace(Regex("(?i)<br\\s*/?>"), "\n")
+            .replace(Regex("<[^>]+>"), "")
+            .trim()
+
+        val btnCopy = TextView(this).apply {
+            text = "复制"
+            textSize = 11.5f
+            setTextColor(accent)
+            typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+            setPadding(dpToPx(10), dpToPx(3), dpToPx(10), dpToPx(3))
+            val btnBg = android.graphics.drawable.GradientDrawable().apply {
+                setColor(androidx.core.graphics.ColorUtils.setAlphaComponent(accent, 0x1A))
+                cornerRadius = dpToPx(8).toFloat()
+            }
+            background = btnBg
+            isClickable = true
+            isFocusable = true
+            setOnClickListener {
+                if (cleanContent.isNotEmpty()) {
+                    val cm = getSystemService(Context.CLIPBOARD_SERVICE) as? android.content.ClipboardManager
+                    cm?.setPrimaryClip(android.content.ClipData.newPlainText("隐藏内容", cleanContent))
+                    Toast.makeText(this@ThreadDetailActivity, "已复制隐藏内容", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+        topRow.addView(btnCopy)
+        card.addView(topRow)
+
+        
+        val tvBody = TextView(this).apply {
+            val lp = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            ).apply {
+                topMargin = dpToPx(8)
+            }
+            layoutParams = lp
+            textSize = 15f
+            setTextColor(getColor(R.color.text_primary))
+            setLineSpacing(dpToPx(6).toFloat(), 1.0f)
+            text = safeFromHtml(
+                content,
+                createInlineImageGetter(this),
+                BBCodeUtil.createTagHandler(this@ThreadDetailActivity)
+            )
+            setupClickableLinks(this)
+        }
+        card.addView(tvBody)
+        return card
+    }
+
+    private fun createTableLayoutView(tableHtml: String): View? {
+        try {
+            val doc = Jsoup.parseBodyFragment(tableHtml)
+            val tableEl = doc.selectFirst("table") ?: return null
+            val rows = tableEl.select("tr")
+            if (rows.isEmpty()) return null
+
+            var maxCols = 0
+            for (r in rows) {
+                val cols = r.select("th, td").size
+                if (cols > maxCols) maxCols = cols
+            }
+            if (maxCols == 0) return null
+
+            val card = FrameLayout(this)
+            val cardLp = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            )
+            cardLp.setMargins(0, dpToPx(10), 0, dpToPx(10))
+            card.layoutParams = cardLp
+            card.setBackgroundResource(R.drawable.bg_table_border)
+            card.outlineProvider = ViewOutlineProvider.BACKGROUND
+            card.clipToOutline = true
+
+            val dividerColor = getColor(R.color.divider)
+            val headerBgColor = getColor(R.color.code_block_bg)
+            val textColor = getColor(R.color.text_primary)
+
+            val isTwoCols = maxCols == 2
+            if (isTwoCols) {
+                
+                
+                
+                val rootLayout = LinearLayout(this).apply {
+                    orientation = LinearLayout.VERTICAL
+                    layoutParams = FrameLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT
+                    )
+                }
+
+                
+                val testPaint = android.text.TextPaint().apply {
+                    textSize = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, 13.5f, resources.displayMetrics)
+                    typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+                }
+                var maxKeyTextWidth = 0f
+                for (r in rows) {
+                    val firstCell = r.selectFirst("th, td")
+                    if (firstCell != null) {
+                        val lines = firstCell.text().split("\n", "/")
+                        for (line in lines) {
+                            val w = testPaint.measureText(line.trim())
+                            if (w > maxKeyTextWidth) maxKeyTextWidth = w
+                        }
+                    }
+                }
+                val minKeyWidth = dpToPx(72)
+                val maxKeyWidth = dpToPx(130)
+                val keyColWidth = (maxKeyTextWidth + dpToPx(24)).toInt().coerceIn(minKeyWidth, maxKeyWidth)
+
+                for ((rIdx, r) in rows.withIndex()) {
+                    val cells = r.select("th, td")
+                    if (cells.isEmpty()) continue
+
+                    val isHeaderRow = rIdx == 0 || cells.first()?.tagName()?.equals("th", ignoreCase = true) == true
+                    val rowLayout = LinearLayout(this).apply {
+                        orientation = LinearLayout.HORIZONTAL
+                        layoutParams = LinearLayout.LayoutParams(
+                            ViewGroup.LayoutParams.MATCH_PARENT,
+                            ViewGroup.LayoutParams.WRAP_CONTENT
+                        )
+                        if (isHeaderRow) {
+                            setBackgroundColor(headerBgColor)
+                        }
+                    }
+
+                    
+                    val cell0 = cells.getOrNull(0)
+                    val tv0 = TextView(this).apply {
+                        layoutParams = LinearLayout.LayoutParams(keyColWidth, ViewGroup.LayoutParams.MATCH_PARENT)
+                        setPadding(dpToPx(10), dpToPx(8), dpToPx(10), dpToPx(8))
+                        gravity = if (isHeaderRow) Gravity.CENTER else (Gravity.CENTER_VERTICAL or Gravity.START)
+                        setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL))
+                        textSize = if (isHeaderRow) 14f else 13.5f
+                        setTextColor(textColor)
+                        if (!isHeaderRow) setBackgroundColor(headerBgColor)
+                        val rawText = cell0?.html()?.trim() ?: ""
+                        text = safeFromHtml(rawText, createInlineImageGetter(this), null)
+                    }
+                    rowLayout.addView(tv0)
+
+                    
+                    val vDiv = View(this).apply {
+                        layoutParams = LinearLayout.LayoutParams(dpToPx(1), ViewGroup.LayoutParams.MATCH_PARENT)
+                        setBackgroundColor(dividerColor)
+                    }
+                    rowLayout.addView(vDiv)
+
+                    
+                    val cell1 = cells.getOrNull(1)
+                    val tv1 = TextView(this).apply {
+                        layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1.0f)
+                        setPadding(dpToPx(10), dpToPx(8), dpToPx(10), dpToPx(8))
+                        gravity = if (isHeaderRow) Gravity.CENTER else (Gravity.CENTER_VERTICAL or Gravity.START)
+                        textSize = if (isHeaderRow) 14f else 13.5f
+                        if (isHeaderRow) setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL))
+                        setTextColor(textColor)
+                        setLineSpacing(dpToPx(2).toFloat(), 1.0f)
+                        val rawText = cell1?.html()?.trim() ?: ""
+                        text = safeFromHtml(rawText, createInlineImageGetter(this), null)
+                    }
+                    rowLayout.addView(tv1)
+
+                    rootLayout.addView(rowLayout)
+
+                    if (rIdx < rows.size - 1) {
+                        val hDiv = View(this).apply {
+                            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dpToPx(1))
+                            setBackgroundColor(dividerColor)
+                        }
+                        rootLayout.addView(hDiv)
+                    }
+                }
+
+                card.addView(rootLayout)
+                return card
+            }
+
+            
+            val tableLayout = TableLayout(this).apply {
+                layoutParams = FrameLayout.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT
+                )
+                isStretchAllColumns = false
+            }
+
+            for ((rIdx, r) in rows.withIndex()) {
+                val cells = r.select("th, td")
+                if (cells.isEmpty()) continue
+
+                val isHeaderRow = rIdx == 0 || cells.first()?.tagName()?.equals("th", ignoreCase = true) == true
+                val tr = TableRow(this).apply {
+                    layoutParams = TableLayout.LayoutParams(
+                        ViewGroup.LayoutParams.WRAP_CONTENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT
+                    )
+                    if (isHeaderRow) setBackgroundColor(headerBgColor)
+                }
+
+                for (cell in cells) {
+                    val cellTv = TextView(this).apply {
+                        layoutParams = TableRow.LayoutParams(
+                            ViewGroup.LayoutParams.WRAP_CONTENT,
+                            ViewGroup.LayoutParams.WRAP_CONTENT
+                        )
+                        setPadding(dpToPx(10), dpToPx(8), dpToPx(10), dpToPx(8))
+                        gravity = Gravity.CENTER_VERTICAL or Gravity.START
+                        textSize = 13.5f
+                        if (isHeaderRow) setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL))
+                        setTextColor(textColor)
+                        setLineSpacing(dpToPx(2).toFloat(), 1.0f)
+                        text = safeFromHtml(cell.html().trim(), createInlineImageGetter(this), null)
+                    }
+                    tr.addView(cellTv)
+                }
+                tableLayout.addView(tr)
+
+                if (rIdx < rows.size - 1) {
+                    val div = View(this).apply {
+                        layoutParams = TableLayout.LayoutParams(
+                            ViewGroup.LayoutParams.MATCH_PARENT,
+                            dpToPx(1)
+                        )
+                        setBackgroundColor(dividerColor)
+                    }
+                    tableLayout.addView(div)
+                }
+            }
+
+            val hsv = HorizontalScrollView(this).apply {
+                layoutParams = FrameLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT
+                )
+                isFillViewport = true
+                addView(tableLayout)
+            }
+            card.addView(hsv)
+            return card
+        } catch (e: Exception) {
+            return null
+        }
+    }
+}

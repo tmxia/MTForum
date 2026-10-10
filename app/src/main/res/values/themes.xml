@@ -1,0 +1,233 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <!-- 主主题 - 现代科技微蓝极简风格 -->
+    <style name="Theme.AppTheme" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <!-- 品牌色 -->
+        <item name="colorPrimary">@color/primary</item>
+        <item name="colorPrimary80">#CC2563EB</item>
+        <item name="colorPrimaryVariant">@color/primary_dark</item>
+        <item name="colorOnPrimary">@color/text_white</item>
+        <item name="colorSecondary">@color/primary_light</item>
+        <item name="colorSecondaryVariant">@color/primary</item>
+        <item name="colorOnSecondary">@color/text_white</item>
+
+        <!-- 沉浸式状态栏与导航栏：无缝融入背景 -->
+        <item name="android:statusBarColor" tools:targetApi="21">@color/top_bar</item>
+        <item name="android:windowLightStatusBar" tools:targetApi="23">true</item>
+        <item name="android:navigationBarColor" tools:targetApi="21">@color/background</item>
+        <item name="android:windowLightNavigationBar" tools:targetApi="27">true</item>
+
+        <!-- 窗口背景 -->
+        <item name="android:windowBackground">@color/background</item>
+        <item name="android:colorBackground">@color/background</item>
+
+        <!-- 涟漪交互反馈波纹色 -->
+        <item name="colorControlHighlight">@color/primary_alpha_19</item>
+
+        <item name="windowActionBar">false</item>
+        <item name="windowNoTitle">true</item>
+        <item name="materialCardViewStyle">@style/CardView.NewStyle</item>
+    
+        <item name="appColorTextPrimary">@color/text_primary</item>
+        <item name="appColorTextSecondary">@color/text_secondary</item>
+        <item name="appColorTextHint">@color/text_hint</item>
+        <item name="appColorDivider">@color/divider</item>
+        <item name="appColorBackground">@color/background</item>
+        <item name="appColorTopBar">@color/top_bar</item>
+        <item name="appColorSurface">@color/surface</item>
+        <item name="appColorIconSecondary">@color/icon_secondary</item>
+        <item name="appColorPrimary">@color/primary</item>
+                <item name="appBgInput">@drawable/bg_edittext_border</item>
+        <item name="appBgButtonPrimary">@drawable/bg_button_blue</item>
+        <item name="appBgButtonSecondary">@drawable/bg_button_gray</item>
+        <item name="switchStyle">@style/Widget.AppTheme.Switch</item>
+        <item name="alertDialogTheme">@style/ThemeOverlay.AppTheme.AlertDialog</item>
+        <item name="appColorBackgroundSecondary">@color/background_secondary</item>
+        <item name="appColorBackgroundPrimary">@color/background_primary</item>
+        <item name="actionModeStyle">@style/AppActionMode</item>
+        <item name="windowActionModeOverlay">true</item>
+</style>
+
+    <style name="Theme.AppTheme.NoActionBar">
+        <item name="windowActionBar">false</item>
+        <item name="windowNoTitle">true</item>
+    </style>
+
+    <!-- 现代质感卡片：16dp 大圆角、微描边分层与柔和投影 -->
+    <style name="CardView.NewStyle" parent="Widget.MaterialComponents.CardView">
+        <item name="cardCornerRadius">16dp</item>
+        <item name="cardElevation">1dp</item>
+        <item name="cardBackgroundColor">@color/surface</item>
+        <item name="strokeWidth">1dp</item>
+        <item name="strokeColor">@color/divider</item>
+        <item name="cardPreventCornerOverlap">false</item>
+    </style>
+
+    <!-- 形状样式 -->
+    <style name="ShapeAppearanceOverlay.App.CornerSize50Percent" parent="">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">50%</item>
+    </style>
+
+    <!-- 底部弹窗仅顶部大圆角，底部无圆角平直贴底 -->
+    <style name="ShapeAppearance.BottomSheetCardTopOnly" parent="">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSizeTopLeft">16dp</item>
+        <item name="cornerSizeTopRight">16dp</item>
+        <item name="cornerSizeBottomLeft">0dp</item>
+        <item name="cornerSizeBottomRight">0dp</item>
+    </style>
+
+    <!-- 圆形头像背景 -->
+    <style name="CircleAvatarBg">
+        <item name="android:background">@drawable/circle_avatar_bg</item>
+    </style>
+
+    <!-- 全屏预览主题(隐藏状态栏) -->
+    <style name="Theme.AppTheme.FullScreen" parent="Theme.AppTheme">
+        <item name="android:windowFullscreen">true</item>
+        <item name="android:windowContentOverlay">@null</item>
+    </style>
+
+    <!-- 多主题色彩变体 -->
+    <style name="Theme.AppTheme.Teal" parent="Theme.AppTheme">
+        <item name="colorPrimary">@color/theme_teal</item>
+        <item name="colorPrimary80">#CC0D9488</item>
+        <item name="colorPrimaryVariant">@color/theme_teal_dark</item>
+        <item name="colorSecondary">@color/theme_teal_light</item>
+        <item name="colorSecondaryVariant">@color/theme_teal</item>
+        <item name="android:statusBarColor">@color/background</item>
+        <item name="android:navigationBarColor">@color/background</item>
+    </style>
+
+    <style name="Theme.AppTheme.Purple" parent="Theme.AppTheme">
+        <item name="colorPrimary">@color/theme_purple</item>
+        <item name="colorPrimary80">#CC7C3AED</item>
+        <item name="colorPrimaryVariant">@color/theme_purple_dark</item>
+        <item name="colorSecondary">@color/theme_purple_light</item>
+        <item name="colorSecondaryVariant">@color/theme_purple</item>
+        <item name="android:statusBarColor">@color/background</item>
+        <item name="android:navigationBarColor">@color/background</item>
+    </style>
+
+    <style name="Theme.AppTheme.Orange" parent="Theme.AppTheme">
+        <item name="colorPrimary">@color/theme_orange</item>
+        <item name="colorPrimary80">#CCEA580C</item>
+        <item name="colorPrimaryVariant">@color/theme_orange_dark</item>
+        <item name="colorSecondary">@color/theme_orange_light</item>
+        <item name="colorSecondaryVariant">@color/theme_orange</item>
+        <item name="android:statusBarColor">@color/background</item>
+        <item name="android:navigationBarColor">@color/background</item>
+    </style>
+
+    <style name="Theme.AppTheme.Graphite" parent="Theme.AppTheme">
+        <item name="colorPrimary">@color/theme_graphite</item>
+        <item name="colorPrimary80">#CC475569</item>
+        <item name="colorPrimaryVariant">@color/theme_graphite_dark</item>
+        <item name="colorSecondary">@color/theme_graphite_light</item>
+        <item name="colorSecondaryVariant">@color/theme_graphite</item>
+        <item name="android:statusBarColor">@color/background</item>
+        <item name="android:navigationBarColor">@color/background</item>
+    </style>
+
+    <style name="Theme.AppTheme.Rose" parent="Theme.AppTheme">
+        <item name="colorPrimary">@color/theme_rose</item>
+        <item name="colorPrimary80">#CCE11D48</item>
+        <item name="colorPrimaryVariant">@color/theme_rose_dark</item>
+        <item name="colorSecondary">@color/theme_rose_light</item>
+        <item name="colorSecondaryVariant">@color/theme_rose</item>
+        <item name="android:statusBarColor">@color/background</item>
+        <item name="android:navigationBarColor">@color/background</item>
+    </style>
+
+
+    <!-- iOS 风格主题：一套独立色板 -->
+    <style name="Theme.AppTheme.iOS" parent="Theme.AppTheme">
+        <item name="appColorTextPrimary">#000000</item>
+        <item name="appColorTextSecondary">#3C3C43</item>
+        <item name="appColorTextHint">#8E8E93</item>
+        <item name="appColorDivider">#D8DADE</item>
+        <item name="appColorBackground">#F2F2F7</item>
+        <item name="appColorTopBar">#FFFFFF</item>
+        <item name="appColorSurface">#FFFFFF</item>
+        <item name="appColorIconSecondary">#8E8E93</item>
+        <item name="appColorPrimary">#007AFF</item>
+        <item name="colorPrimary">#007AFF</item>
+        <item name="android:windowBackground">#F2F2F7</item>
+        <item name="android:colorBackground">#F2F2F7</item>
+        <item name="android:statusBarColor">#FFFFFF</item>
+        <item name="android:navigationBarColor">#F2F2F7</item>
+            <item name="appBgInput">@drawable/bg_edittext_border_ios</item>
+        <item name="appBgButtonPrimary">@drawable/bg_button_primary_ios</item>
+        <item name="appBgButtonSecondary">@drawable/bg_button_secondary_ios</item>
+        <item name="materialCardViewStyle">@style/CardView.NewStyle.iOS</item>
+        <item name="switchStyle">@style/Widget.AppTheme.Switch.iOS</item>
+        <item name="alertDialogTheme">@style/ThemeOverlay.AppTheme.AlertDialog.iOS</item>
+        <item name="appColorBackgroundSecondary">#F2F2F7</item>
+        <item name="appColorBackgroundPrimary">#F2F2F7</item>
+        <item name="colorPrimary80">#CC007AFF</item>
+        <item name="actionModeStyle">@style/AppActionMode</item>
+        <item name="windowActionModeOverlay">true</item>
+</style>
+
+    
+    <!-- 开关样式 -->
+    <style name="Widget.AppTheme.Switch" parent="Widget.MaterialComponents.CompoundButton.Switch">
+        <item name="android:trackTint">@color/switch_track_tint</item>
+        <item name="android:thumbTint">@color/switch_thumb_tint</item>
+    </style>
+
+    <style name="Widget.AppTheme.Switch.iOS" parent="Widget.MaterialComponents.CompoundButton.Switch">
+        <item name="android:trackTint">@color/switch_track_tint_ios</item>
+        <item name="android:thumbTint">@color/switch_thumb_tint_ios</item>
+    </style>
+
+    <!-- 弹窗主题 -->
+    <style name="ThemeOverlay.AppTheme.AlertDialog" parent="ThemeOverlay.MaterialComponents.MaterialAlertDialog">
+        <item name="colorPrimary">?attr/appColorPrimary</item>
+        <item name="colorSurface">?attr/appColorSurface</item>
+        <item name="shapeAppearanceOverlay">@style/ShapeAppearance.AppTheme.AlertDialog</item>
+    </style>
+
+    <style name="ShapeAppearance.AppTheme.AlertDialog" parent="">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">16dp</item>
+    </style>
+
+    <style name="ThemeOverlay.AppTheme.AlertDialog.iOS" parent="ThemeOverlay.MaterialComponents.MaterialAlertDialog">
+        <item name="colorPrimary">#007AFF</item>
+        <item name="colorSurface">#FFFFFF</item>
+        <item name="shapeAppearanceOverlay">@style/ShapeAppearance.AppTheme.AlertDialog.iOS</item>
+    </style>
+
+    <style name="ShapeAppearance.AppTheme.AlertDialog.iOS" parent="">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">14dp</item>
+    </style>
+
+    <!-- iOS 卡片 -->
+    <style name="CardView.NewStyle.iOS" parent="Widget.MaterialComponents.CardView">
+        <item name="cardCornerRadius">16dp</item>
+        <item name="cardElevation">0dp</item>
+        <item name="strokeWidth">0dp</item>
+        <item name="cardPreventCornerOverlap">false</item>
+    </style>
+
+
+    <!-- ─── 文本选择菜单（ActionMode）─── -->
+    <style name="AppActionMode" parent="Widget.AppCompat.ActionMode">
+        <item name="android:background">@drawable/action_mode_bg</item>
+        <item name="android:height">40dp</item>
+        <item name="android:titleTextStyle">@style/AppActionMode.Title</item>
+        <item name="actionMenuTextAppearance">@style/AppActionMode.Menu</item>
+    </style>
+
+    <style name="AppActionMode.Title" parent="TextAppearance.AppCompat.Widget.ActionMode.Title">
+        <item name="android:textSize">13sp</item>
+    </style>
+
+    <style name="AppActionMode.Menu" parent="TextAppearance.AppCompat.Widget.ActionMode.Title">
+        <item name="android:textSize">13sp</item>
+    </style>
+
+</resources>
