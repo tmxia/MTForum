@@ -14,7 +14,7 @@
         android:fillViewport="true"
         android:clipToPadding="false"
         android:paddingTop="12dp"
-        android:paddingBottom="80dp">
+        android:paddingBottom="96dp">
 
         <LinearLayout
             android:layout_width="match_parent"
