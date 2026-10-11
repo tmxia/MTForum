@@ -74,6 +74,20 @@ class ProfileFragment : Fragment() {
             navScroll.setOnScrollChangeListener { v, sx, sy, osx, osy ->
                 NavBarAutoHideHelper.onScrolled(activity, sy - osy)
             }
+            // 关键：ScrollView 上的触摸不要被 ViewPager2 的 RecyclerView 拦截
+            navScroll.setOnTouchListener { v, event ->
+                when (event.actionMasked) {
+                    android.view.MotionEvent.ACTION_DOWN,
+                    android.view.MotionEvent.ACTION_MOVE -> {
+                        v.parent?.requestDisallowInterceptTouchEvent(true)
+                    }
+                    android.view.MotionEvent.ACTION_UP,
+                    android.view.MotionEvent.ACTION_CANCEL -> {
+                        v.parent?.requestDisallowInterceptTouchEvent(false)
+                    }
+                }
+                false
+            }
         }
 
         
