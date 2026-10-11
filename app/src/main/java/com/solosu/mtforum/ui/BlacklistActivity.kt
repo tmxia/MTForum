@@ -19,6 +19,7 @@ import com.google.android.material.appbar.MaterialToolbar
 import com.solosu.mtforum.R
 import com.solosu.mtforum.session.BlacklistManager
 import com.solosu.mtforum.session.BlacklistSyncer
+import com.solosu.mtforum.ui.widget.FrostedGlassDrawable
 import com.solosu.mtforum.ui.space.UserProfileActivity
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -159,6 +160,7 @@ class BlacklistActivity : AppCompatActivity() {
             val h: ViewHolder
             if (view == null) {
                 view = LayoutInflater.from(context).inflate(R.layout.item_blacklist_entry, parent, false)
+                view.setBackground(FrostedGlassDrawable.create(context, 8f))
                 h = ViewHolder()
                 h.name = view.findViewById(R.id.tv_bl_name)
                 h.meta = view.findViewById(R.id.tv_bl_meta)

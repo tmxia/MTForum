@@ -147,6 +147,12 @@ class ThreadAdapter(private val context: Context) : RecyclerView.Adapter<ThreadA
         }
         val view = LayoutInflater.from(context).inflate(R.layout.item_thread, parent, false)
         
+        
+        val cardView = view.findViewById<View>(R.id.thread_card)
+        if (cardView != null) {
+            cardView.setBackground(FrostedGlassDrawable.create(context, 8f))
+        }
+
         return ViewHolder(view)
     }
 
