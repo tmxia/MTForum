@@ -85,10 +85,6 @@ class BlacklistActivity : AppCompatActivity() {
         root.addView(tvCount, LinearLayout.LayoutParams(-1, -2))
 
         val listView = ListView(this)
-        listView.divider = android.graphics.drawable.ColorDrawable(
-            ContextCompat.getColor(this, R.color.divider)
-        )
-        listView.dividerHeight = dp(0.5f)
         listView.setPadding(0, 0, 0, 0)
         listView.clipToPadding = false
         listView.isVerticalScrollBarEnabled = false
