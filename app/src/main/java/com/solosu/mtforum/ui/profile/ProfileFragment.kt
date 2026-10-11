@@ -69,7 +69,7 @@ class ProfileFragment : Fragment() {
         httpClient = HttpClient.getInstance()
 
         
-        val navScroll = view.findViewById<android.widget.ScrollView>(R.id.nav_scroll_profile)
+        val navScroll = view.findViewById<androidx.core.widget.NestedScrollView>(R.id.nav_scroll_profile)
         if (navScroll != null) {
             navScroll.setOnScrollChangeListener { v, sx, sy, osx, osy ->
                 NavBarAutoHideHelper.onScrolled(activity, sy - osy)
