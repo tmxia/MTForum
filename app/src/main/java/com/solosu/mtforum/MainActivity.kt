@@ -105,7 +105,13 @@ class MainActivity : AppCompatActivity() {
         pagerAdapter = MainPagerAdapter(this)
         mainPager!!.adapter = pagerAdapter
         mainPager!!.offscreenPageLimit = MainPagerAdapter.PAGE_COUNT - 1 
-        mainPager!!.isUserInputEnabled = false 
+        mainPager!!.isUserInputEnabled = false
+        // 允许内部 Fragment 的 ScrollView 接收竖直手势
+        mainPager!!.post {
+            (mainPager!!.getChildAt(0) as? androidx.recyclerview.widget.RecyclerView)?.apply {
+                isNestedScrollingEnabled = false
+            }
+        } 
         mainPager!!.registerOnPageChangeCallback(object : ViewPager2.OnPageChangeCallback() {
             override fun onPageSelected(position: Int) {
                 
