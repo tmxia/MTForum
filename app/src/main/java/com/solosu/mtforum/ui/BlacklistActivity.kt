@@ -92,6 +92,8 @@ class BlacklistActivity : AppCompatActivity() {
         listView.adapter = adapter
 
         
+        listView.setPadding(dp(8f), dp(4f), dp(8f), dp(8f))
+        listView.clipToPadding = false
         listView.layoutParams = LinearLayout.LayoutParams(-1, 0, 1f)
         root.addView(listView)
 

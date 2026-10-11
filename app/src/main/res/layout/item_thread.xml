@@ -1,23 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.cardview.widget.CardView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/thread_card"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:layout_marginStart="4dp"
-    android:layout_marginEnd="4dp"
-    android:orientation="vertical"
+    android:layout_margin="4dp"
     android:clickable="true"
     android:focusable="true"
     android:foreground="?attr/selectableItemBackground">
 
-    <!-- 帖子卡片容器 -->
     <LinearLayout
-        android:id="@+id/thread_card"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="4dp"
-        android:layout_marginBottom="4dp"
-        android:background="@drawable/thread_card_bg"
         android:orientation="vertical"
         android:paddingHorizontal="14dp"
         android:paddingVertical="13dp">
@@ -251,11 +245,4 @@
 
     </LinearLayout>
 
-    <!-- 帖子与帖子之间的间距 -->
-    <View
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_marginTop="5dp"
-        android:background="@android:color/transparent" />
-
-</LinearLayout>
+</androidx.cardview.widget.CardView>
