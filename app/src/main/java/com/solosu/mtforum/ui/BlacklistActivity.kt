@@ -96,22 +96,8 @@ class BlacklistActivity : AppCompatActivity() {
         listView.adapter = adapter
 
         
-        val card = com.google.android.material.card.MaterialCardView(this)
-        card.layoutParams = LinearLayout.LayoutParams(-1, 0, 1f).apply {
-            marginStart = dp(6f)
-            marginEnd = dp(6f)
-            topMargin = dp(2f)
-            bottomMargin = dp(6f)
-        }
-        val cardBgTv = android.util.TypedValue()
-        if (theme.resolveAttribute(R.attr.appColorSurface, cardBgTv, true)) {
-            card.setCardBackgroundColor(cardBgTv.data)
-        }
-        card.radius = dp(12f).toFloat()
-        card.cardElevation = 0f
-        card.addView(listView, android.view.ViewGroup.LayoutParams(-1, -1))
-
-        root.addView(card)
+        listView.layoutParams = LinearLayout.LayoutParams(-1, 0, 1f)
+        root.addView(listView)
 
         setContentView(root)
 
